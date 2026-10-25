@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Inside a Drop of Saliva</title>
+<meta name="description" content="Choose a lab and watch it light up — RMIT × Discovery to Device installation.">
+<meta name="theme-color" content="#ffffff">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="icon" type="image/png" href="img/d2d-icon-64.png">
+<link rel="apple-touch-icon" href="img/d2d-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;800&family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<style>
+  :root{
+    /* Discovery to Device brand palette */
+    --navy:#00004d; --white:#ffffff;
+    --c1:#ff5500;  /* Pattern and Deposition — orange */
+    --c2:#56d1c2;  /* Biosensor Development — teal */
+    --c3:#6d33bd;  /* Electronics Integration — purple */
+    --c4:#ff005f;  /* Machining and Assembly — pink */
+    --muted:#55557f; --line:#e3e3ee; --soft:#f5f5fa;
+    --sans:"Lexend","Century Gothic","Noto Sans SC","PingFang SC","Noto Sans Devanagari",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--white);color:var(--navy);font-family:var(--sans);-webkit-text-size-adjust:100%}
+  .wrap{max-width:680px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 40px max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:18px}
+  header{display:flex;flex-direction:column;gap:8px}
+  .hrow{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .eyebrow{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .eyebrow i{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--c4)}
+  h1{font-size:30px;line-height:1.1;margin:2px 0 0;font-weight:800;letter-spacing:-.01em}
+  .cobrand{height:40px;width:auto;max-width:calc(100% - 150px);object-fit:contain;object-position:left center;display:block}
+  .brandmark{width:min(240px,70%);height:auto;display:block}
+  .lead{margin:0;font-size:15px;line-height:1.55;color:var(--muted)}
+  .langsel{position:relative;flex:none}
+  .langsel select{appearance:none;-webkit-appearance:none;border:1.5px solid var(--navy);background:var(--white);color:var(--navy);border-radius:999px;padding:7px 30px 7px 32px;font:600 13px var(--sans);cursor:pointer;max-width:170px}
+  .langsel svg{position:absolute;top:50%;transform:translateY(-50%);pointer-events:none}
+  .langsel .globe{left:10px} .langsel .chev{right:10px}
+  .status{border:1.5px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;gap:12px;align-items:center;background:var(--soft)}
+  .dot{width:11px;height:11px;border-radius:50%;background:#b8b8cc;flex:none}
+  .dot.live{background:var(--c2);box-shadow:0 0 0 4px rgba(86,209,194,.25)}
+  .dot.busy{background:var(--c1);box-shadow:0 0 0 4px rgba(255,85,0,.18)}
+  .status p{margin:0;font-size:15px;line-height:1.45;font-weight:600}
+  .status small{display:block;color:var(--muted);font-size:13px;margin-top:2px;font-weight:400}
+  .journey{display:flex;flex-direction:column;align-items:stretch}
+  .card{border:1.5px solid var(--line);border-top:5px solid var(--c);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;background:var(--white);transition:background .3s,border-color .3s}
+  .card.here{border-color:var(--c)}
+  .card.playing{background:color-mix(in srgb,var(--c) 9%,var(--white));border-color:var(--c)}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .num{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-weight:600;display:flex;align-items:center;gap:6px}
+  .num i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+  .name{font-size:22px;font-weight:800;margin:3px 0 0}
+  .lab{font-size:13px;color:var(--muted)}
+  .desc{font-size:15px;line-height:1.55;margin:0}
+  .badge{font-size:12px;font-weight:600;border-radius:999px;padding:4px 10px;background:var(--c);color:var(--ink);white-space:nowrap;display:none}
+  .card.playing .badge{display:inline-block}
+  /* backlight on top (with diffuser film), under-light below — like the real box */
+  .leds{display:flex;flex-direction:column;gap:8px;width:min(78%,300px);margin:0 auto}
+  .leds figure{margin:0;display:flex;flex-direction:column;gap:5px}
+  .leds canvas{width:100%;aspect-ratio:1/1;border-radius:14px;display:block;transition:opacity .4s}
+  .leds figcaption{font-size:11px;color:var(--muted);text-align:center;letter-spacing:.03em}
+  canvas.live-stale{opacity:.8}
+  details.more{border-top:1px solid var(--line);padding-top:10px}
+  details.more summary{cursor:pointer;font-weight:600;font-size:14px;list-style:none;display:flex;align-items:center;gap:8px}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more summary::before{content:"";flex:none;width:22px;height:22px;border-radius:50%;
+    background:linear-gradient(var(--ink),var(--ink)) center/10px 2px no-repeat,linear-gradient(var(--ink),var(--ink)) center/2px 10px no-repeat,var(--c)}
+  details.more[open] summary::before{background:linear-gradient(var(--ink),var(--ink)) center/10px 2px no-repeat,var(--c)}
+  details.more p{margin:10px 0 0;font-size:14.5px;line-height:1.6}
+  .play{appearance:none;border:0;border-radius:12px;padding:14px;font:700 16px var(--sans);background:var(--c);color:var(--ink);cursor:pointer}
+  .play:disabled{background:var(--soft);color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--line);cursor:not-allowed}
+  /* bridge between two boxes: the 8x32 LED strip, drawn top (Box n) → bottom (Box n+1) */
+  .bridge{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:6px 0}
+  .bridge .col{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .bridge canvas{width:48px;height:192px;border-radius:12px;display:block}
+  .bridge i{width:10px;height:10px;border-radius:50%;display:block}
+  .bridge span{font-size:11px;color:var(--muted);letter-spacing:.03em}
+  .tour{appearance:none;border:0;background:var(--navy);color:var(--white);border-radius:14px;padding:16px;font:700 16px var(--sans);cursor:pointer}
+  .tour:disabled{background:var(--soft);color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--line);cursor:not-allowed}
+  .livenote{font-size:12px;color:var(--muted);text-align:center;margin-top:-6px}
+  .toast:empty{display:none}
+  .toast{min-height:20px;font-size:14px;font-weight:600;color:var(--c3);text-align:center}
+  .foot{font-size:12px;color:var(--muted);text-align:center;line-height:1.6;margin:0}
+  /* scale-up + about */
+  .block{border:1.5px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px}
+  .block h2{font-size:21px;margin:0;font-weight:800;line-height:1.2}
+  .block p{margin:0;font-size:15px;line-height:1.6}
+  .scale canvas{width:100%;aspect-ratio:16/10;border-radius:14px;display:block;background:var(--navy)}
+  .steps{display:flex;gap:6px;align-items:center}
+  .steps span{flex:1;text-align:center;font-size:13px;font-weight:600;padding:7px 4px;border-radius:999px;background:var(--soft);color:var(--muted);transition:background .3s,color .3s}
+  .steps span.on{background:var(--navy);color:var(--white)}
+  .steps b{color:var(--line);font-weight:400}
+  .note{font-size:11px;color:var(--muted);text-align:right;margin-top:-6px}
+  .facts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .facts li{display:flex;gap:10px;font-size:14.5px;line-height:1.55}
+  .facts li::before{content:"";flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--fc)}
+  .swatches{display:flex;gap:6px}
+  .swatches i{flex:1;height:10px;border-radius:5px}
+  h3{font-size:15px;margin:4px 0 0}
+  .links{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .links a{display:flex;align-items:center;justify-content:space-between;gap:8px;text-decoration:none;color:var(--navy);border:1.5px solid var(--navy);border-radius:12px;padding:12px;font-weight:600;font-size:14px;line-height:1.3}
+  .links a:hover{background:var(--soft)}
+  .links a::after{content:"↗";font-weight:400}
+  .video{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:var(--navy);border:0;padding:0;cursor:pointer;display:block;color:var(--white);font:600 15px var(--sans)}
+  .video .pl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    background:radial-gradient(circle at 25% 30%,rgba(255,85,0,.45),transparent 45%),radial-gradient(circle at 75% 35%,rgba(86,209,194,.45),transparent 45%),radial-gradient(circle at 30% 80%,rgba(109,51,189,.6),transparent 50%),radial-gradient(circle at 80% 80%,rgba(255,0,95,.45),transparent 45%)}
+  .video .pl i{width:64px;height:64px;border-radius:50%;background:var(--white);display:grid;place-items:center}
+  .video .pl i::after{content:"";border-left:20px solid var(--navy);border-top:12px solid transparent;border-bottom:12px solid transparent;margin-left:5px}
+  .video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  /* quick links: stays at the top while scrolling */
+  .qnav{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-6px calc(-1 * max(16px,env(safe-area-inset-left))) 0;padding:10px max(16px,env(safe-area-inset-left));background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .qnav::-webkit-scrollbar{display:none}
+  .qnav a{flex:none;display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--navy);font-size:13px;font-weight:600;padding:7px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--white);white-space:nowrap;transition:background .2s,border-color .2s,color .2s}
+  .qnav a i{width:8px;height:8px;border-radius:50%;background:var(--qc)}
+  .qnav a.on{background:var(--qc);border-color:var(--qc);color:var(--qi)}
+  .qnav a.on i{background:var(--qi)}
+  .card,.block{scroll-margin-top:64px}
+  @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+  @media (max-width:420px){.links{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:no-preference){.card.playing .badge{animation:pulse 1.6s ease-in-out infinite}}
+  @keyframes pulse{50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="hrow">
+      <img class="cobrand" src="img/d2d-rmit.png" width="1000" height="226" alt="Discovery to Device · RMIT University">
+      <label class="langsel">
+        <svg class="globe" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00004d" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+        <select id="lang" aria-label="Language"></select>
+        <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00004d" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+      </label>
+    </div>
+    <h1>Inside a Drop of Saliva</h1>
+    <p class="lead" data-t="lead"></p>
+  </header>
+
+  <nav class="qnav" id="qnav" aria-label="Sections"></nav>
+
+  <!-- About D2D -->
+  <section class="block about" id="about">
+    <h2 data-t="aboutTitle"></h2>
+    <p data-t="aboutText"></p>
+    <ul class="facts" id="facts"></ul>
+    <button class="video" id="video" type="button"><span class="pl"><i></i><span data-t="linkVideo"></span></span></button>
+    <h3 data-t="logoTitle"></h3>
+    <img class="brandmark" src="img/d2d-horizontal.png" width="700" height="272" alt="Discovery to Device">
+    <div class="swatches"><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i><i style="background:var(--c4)"></i></div>
+    <p data-t="logoText"></p>
+    <h3 data-t="linksTitle"></h3>
+    <div class="links" id="links"></div>
+  </section>
+
+  <div class="status" role="status" aria-live="polite">
+    <span class="dot" id="dot"></span>
+    <p><span id="stMain">Connecting…</span><small id="stSub"></small></p>
+  </div>
+
+  <div class="journey" id="journey"></div>
+  <div class="livenote" id="livenote"></div>
+
+  <button class="tour" id="tour" data-t="tour"></button>
+  <div class="toast" id="toast"></div>
+  <p class="foot" data-t="foot"></p>
+
+  <!-- From one prototype to many -->
+  <section class="block scale" id="scale">
+    <h2 data-t="scaleTitle"></h2>
+    <p data-t="scaleText"></p>
+    <canvas id="scaleCv" aria-hidden="true"></canvas>
+    <div class="note" data-t="scaleNote"></div>
+    <div class="steps"><span id="s0" data-t="stepIdea"></span><b>→</b><span id="s1" data-t="stepProto"></span><b>→</b><span id="s2" data-t="stepScale"></span></div>
+  </section>
+</div>
+
+<script src="i18n.js"></script>
+<script src="live.js"></script>
+<script>
+// load the MQTT library without blocking the page (no internet → the page still shows)
+const loadMqtt = () => new Promise(res => {
+  if (window.mqtt) return res();
+  const s = document.createElement("script");
+  s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
+  s.onload = res; s.onerror = res; document.head.appendChild(s);
+  setTimeout(res, 8000);
+});
+// ===== Settings — must match the ESP32 program =====
+const BROKER = "wss://broker.hivemq.com:8884/mqtt";
+const TOPIC  = "d2d-saliva-p6w58uii9y";
+
+// ===== Links (edit here). labVideo: put a YouTube link per lab when you have one ("" = none) =====
+const VIDEO_ID = "lE4VDgPhDOg";   // from youtube.com/watch?v=lE4VDgPhDOg
+const LINKS = [
+  ["linkSite",    "https://www.rmit.edu.au/about/schools-colleges/stem-college/research/medtech-hub/facilities"],
+  ["linkNews",    "https://www.rmit.edu.au/news/all-news/2026/apr/d2d-facility"],
+  ["linkVideo",   "https://www.youtube.com/watch?v=" + VIDEO_ID],
+  ["linkPartner", "https://www.rmit.edu.au/partner/contact-the-industry-engagement-team"],
+];
+const labVideo = ["", "", "", ""];
+
+// colours per box. ink = text colour on that colour (brand accessibility page)
+const BOXES = [
+  { c:"var(--c1)", hex:"#ff5500", ink:"var(--navy)" },
+  { c:"var(--c2)", hex:"#56d1c2", ink:"var(--navy)" },
+  { c:"var(--c3)", hex:"#6d33bd", ink:"var(--white)" },
+  { c:"var(--c4)", hex:"#ff005f", ink:"var(--navy)" },
+];
+
+// ===== Language =====
+const TEXT = window.D2D_TEXT, LANGS = window.D2D_LANGS;
+const pickLang = () => {
+  const q = new URLSearchParams(location.search).get("lang");
+  let saved = null; try { saved = localStorage.getItem("d2d-lang"); } catch (e) {}
+  for (const c of [q, saved]) if (c && TEXT[c]) return c;
+  for (const l of (navigator.languages || [navigator.language || "en"])) {
+    const x = (l || "").toLowerCase();
+    if (/^zh-(tw|hk|mo)|hant/.test(x)) return "zh-Hant";
+    const base = x.split("-")[0];
+    if (TEXT[base]) return base;
+  }
+  return "en";
+};
+let lang = pickLang();
+const t = (k, v) => {
+  let s = (TEXT[lang] && TEXT[lang][k] !== undefined) ? TEXT[lang][k] : TEXT.en[k];
+  if (typeof s === "string" && v) for (const key in v) s = s.split("{" + key + "}").join(v[key]);
+  return s;
+};
+
+const $ = id => document.getElementById(id);
+let st = null, lastMsg = 0, client = null, pending = null, toastTimer = null, libFailed = false;
+
+const buildLangMenu = () => {
+  $("lang").innerHTML = LANGS.map(([c, n]) => `<option value="${c}"${c === lang ? " selected" : ""}>${n}</option>`).join("");
+};
+
+const buildPage = () => {
+  const labs = t("labs");
+  let html = "";
+  BOXES.forEach((b, i) => {
+    const L = labs[i] || TEXT.en.labs[i];
+    html += `<section class="card" id="box${i + 1}" style="--c:${b.c};--ink:${b.ink}">
+      <div class="top"><div><div class="num"><i></i>${t("box")} ${i + 1}</div><div class="name">${L.name}</div><div class="lab">${L.lab}</div></div>
+      <span class="badge">${t("playing")}</span></div>
+      <div class="leds">
+        <figure><canvas data-box="${i}" data-part="1" aria-label="${t("box")} ${i + 1} ${t("back")}"></canvas><figcaption>${t("back")}</figcaption></figure>
+        <figure><canvas data-box="${i}" data-part="0" aria-label="${t("box")} ${i + 1} ${t("under")}"></canvas><figcaption>${t("under")}</figcaption></figure>
+      </div>
+      <p class="desc">${L.desc}</p>
+      <details class="more"><summary>${t("more")}</summary><p>${L.more}</p>
+        ${labVideo[i] ? `<p><a href="${labVideo[i]}" target="_blank" rel="noopener">${t("video")} ↗</a></p>` : ""}</details>
+      <button class="play" data-box="${i + 1}">${t("play")}</button></section>`;
+    if (i < 3) html += `<div class="bridge"><span></span>
+      <div class="col"><i style="background:${b.c}"></i><canvas data-bridge="${i}" aria-label="${t("bridge")} ${i + 1}"></canvas><i style="background:${BOXES[i + 1].c}"></i></div>
+      <span>${t("bridge")} ${i + 1}</span></div>`;
+  });
+  $("journey").innerHTML = html;
+  const chips = [["about", t("navAbout"), "var(--navy)", "var(--white)"]]
+    .concat(BOXES.map((b, i) => ["box" + (i + 1), (i + 1) + " · " + (labs[i] || TEXT.en.labs[i]).name, b.c, b.ink]))
+    .concat([["scale", t("stepScale"), "var(--navy)", "var(--white)"]]);
+  $("qnav").innerHTML = chips.map(([id, label, c, ink]) => `<a href="#${id}" data-sec="${id}" style="--qc:${c};--qi:${ink}"><i></i>${label}</a>`).join("");
+  watchSections();
+  D2DLive.clear();
+  document.querySelectorAll("canvas[data-part]").forEach(c => D2DLive.addPanel(c, +c.dataset.box, +c.dataset.part));
+  document.querySelectorAll("canvas[data-bridge]").forEach(c => D2DLive.addBridge(c, +c.dataset.bridge, true));
+  document.querySelectorAll(".play").forEach(b => b.addEventListener("click", () => send("box" + b.dataset.box, +b.dataset.box)));
+  document.querySelectorAll("[data-t]").forEach(el => { const s = t(el.dataset.t); if (typeof s === "string") el.textContent = s; });
+  const fc = ["var(--c2)", "var(--c4)", "var(--c3)"];
+  $("facts").innerHTML = t("facts").map((f, i) => `<li style="--fc:${fc[i % 3]}">${f}</li>`).join("");
+  $("links").innerHTML = LINKS.map(([k, u]) => `<a href="${u}" target="_blank" rel="noopener">${t(k)}</a>`).join("");
+  document.documentElement.lang = lang;
+  highlightHere();
+  render();
+};
+
+// quick links: mark the section on screen and keep its chip visible
+let secObs = null;
+const watchSections = () => {
+  if (!("IntersectionObserver" in window)) return;
+  if (secObs) secObs.disconnect();
+  secObs = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (!e.isIntersecting) return;
+      document.querySelectorAll(".qnav a").forEach(a => {
+        const on = a.dataset.sec === e.target.id;
+        a.classList.toggle("on", on);
+        if (on) { const q = $("qnav"); q.scrollTo({ left: a.offsetLeft - (q.clientWidth - a.offsetWidth) / 2, behavior: "smooth" }); }
+      });
+    });
+  }, { rootMargin: "-70px 0px -55% 0px" });
+  ["about", "box1", "box2", "box3", "box4", "scale"].forEach(id => { const el = $(id); if (el) secObs.observe(el); });
+};
+
+const highlightHere = () => {
+  const m = location.hash.match(/^#box([1-4])$/);
+  document.querySelectorAll(".card").forEach(c => c.classList.toggle("here", !!m && c.id === "box" + m[1]));
+  if (m) document.getElementById("box" + m[1]).scrollIntoView({ block: "start" });
+};
+const toast = (msg, ms = 3500) => { $("toast").textContent = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").textContent = "", ms); };
+
+const isFresh = () => {
+  if (!st || st.s === "offline") return false;
+  if (st.ts > 1700000000 && Math.abs(Date.now() / 1000 - st.ts) < 20) return true;   // the ESP32's own clock says "just now"
+  return Date.now() - lastMsg < 8000 && !st.retained;
+};
+const render = () => {
+  const fresh = isFresh();
+  const dot = $("dot"); dot.className = "dot";
+  let main = t("connecting"), sub = "";
+  let enableBox = [false, false, false, false], enableTour = false, playing = 0;
+  if ((st && !fresh) || libFailed) { main = t("offline"); sub = t("offlineSub"); }
+  if (fresh) {
+    if (!st.on) { main = t("remoteOff"); sub = t("remoteOffSub"); dot.classList.add("busy"); }
+    else if (st.s === "idle") { main = st.z ? t("standby") : t("idle"); sub = t("idleSub"); dot.classList.add("live"); enableBox = [true, true, true, true]; enableTour = true; }
+    else if (st.s === "tour") { main = t("tourOn"); sub = t("left", { s: st.left }); dot.classList.add("busy"); enableBox = [true, true, true, true]; }
+    else if (st.s === "focus") {
+      playing = st.b; main = t("focus", { n: st.b }); dot.classList.add("busy");
+      sub = t("left", { s: st.left }) + (st.paused ? " · " + t("tourPaused") : "") + (st.lock > 0 ? " · " + t("wait", { s: st.lock }) : "");
+      enableBox = [1, 2, 3, 4].map(n => n !== st.b && st.lock <= 0);
+    }
+  }
+  $("stMain").textContent = main; $("stSub").textContent = sub;
+  document.querySelectorAll(".play").forEach((b, i) => b.disabled = !enableBox[i]);
+  $("tour").disabled = !enableTour;
+  document.querySelectorAll(".card").forEach((c, i) => c.classList.toggle("playing", playing === i + 1));
+  $("livenote").textContent = D2DLive.isLive() ? "● " + t("live") : t("liveWait");
+};
+
+const send = (cmd, box) => {
+  if (!client || !client.connected) return;
+  client.publish(TOPIC + "/cmd", cmd);
+  pending = { box, at: Date.now() }; toast(t("sent"));
+  setTimeout(() => { if (pending && Date.now() - pending.at >= 2400) { pending = null; toast(t("busy")); } }, 2500);
+};
+
+const connect = () => {
+  if (!window.mqtt) { libFailed = true; render(); return; }
+  client = mqtt.connect(BROKER, { clientId: "d2d-web-" + Math.random().toString(16).slice(2, 10), reconnectPeriod: 3000, connectTimeout: 8000, clean: true });
+  D2DLive.start(client, TOPIC);
+  client.on("connect", () => { client.subscribe(TOPIC + "/status"); render(); });
+  client.on("message", (topic, payload, packet) => {
+    if (topic !== TOPIC + "/status") return;
+    try { st = JSON.parse(payload.toString()); st.retained = !!(packet && packet.retain); lastMsg = Date.now(); } catch (e) { return; }
+    if (pending) {
+      const ok = (pending.box && st.s === "focus" && st.b === pending.box) || (!pending.box && st.s === "tour");
+      if (ok) { pending = null; toast(t("accepted"), 2000); }
+    }
+    render();
+  });
+  client.on("close", render);
+};
+
+// ===== Video: loads only when tapped (nothing from YouTube until then) =====
+// YouTube only plays embedded videos when it can see which website they are on (the "referrer").
+// A page opened straight from the computer (file://) has no website address, so there we open YouTube instead.
+$("video").addEventListener("click", () => {
+  if (location.protocol === "file:") { window.open("https://www.youtube.com/watch?v=" + VIDEO_ID, "_blank", "noopener"); return; }
+  $("video").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&rel=0&playsinline=1&origin=${encodeURIComponent(location.origin)}" title="Discovery to Device" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>`;
+});
+
+// ===== Scale-up illustration: an idea → one prototype (four labs add their part) → copies multiply =====
+const Scale = (() => {
+  const cv = $("scaleCv"), ctx = cv.getContext("2d");
+  const COL = BOXES.map(b => b.hex);
+  const LOOP = 13, DOUBLINGS = 7;                         // 1 → 128 copies
+  const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let visible = true, t0 = performance.now(), W = 0, H = 0, dpr = 1;
+  const ease = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+  const clamp = u => u < 0 ? 0 : u > 1 ? 1 : u;
+  const fit = () => {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.round(cv.clientWidth * dpr); H = Math.round(cv.clientHeight * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  };
+  // grid layout for n sticks: positions + stick length
+  const layout = n => {
+    const asp = 4.2;                                      // stick length : cell height
+    let best = null;
+    for (let cols = 1; cols <= n; cols++) {
+      const rows = Math.ceil(n / cols);
+      const len = Math.min(W * 0.86 / cols * 0.84, H * 0.8 / rows * asp * 0.7);
+      if (!best || len > best.len) best = { cols, rows, len };
+    }
+    const { cols, rows, len } = best, cw = W * 0.86 / cols, ch = H * 0.8 / rows;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const r = Math.floor(i / cols), c = i % cols, inRow = Math.min(cols, n - r * cols);
+      pts.push([W / 2 + (c - (inRow - 1) / 2) * cw, H * 0.5 + (r - (rows - 1) / 2) * ch]);
+    }
+    return { pts, len: Math.min(len, W * 0.62) };
+  };
+  const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); };
+  // one Saliva Stick; p = how far each lab's part is built (0–1); a = opacity
+  const stick = (cx, cy, len, p, a) => {
+    const h = len * 0.2, x = cx - len / 2, y = cy - h / 2, glow = len > 60 * dpr ? 1 : 0;
+    ctx.save(); ctx.globalAlpha = a;
+    // pink — the housing (Machining and Assembly)
+    if (p[3] > 0) {
+      ctx.globalAlpha = a * p[3];
+      rr(x, y, len, h, h / 2); ctx.fillStyle = "rgba(255,0,95,0.16)"; ctx.fill();
+      ctx.lineWidth = Math.max(1, len * 0.018); ctx.strokeStyle = COL[3];
+      if (glow) { ctx.shadowColor = COL[3]; ctx.shadowBlur = 10 * dpr; }
+      ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = a;
+    }
+    // teal — the sensing tip (Biosensor Development)
+    if (p[1] > 0) {
+      ctx.globalAlpha = a * p[1];
+      rr(x + h * 0.18, y + h * 0.18, len * 0.3, h * 0.64, h * 0.32); ctx.fillStyle = COL[1];
+      if (glow) { ctx.shadowColor = COL[1]; ctx.shadowBlur = 14 * dpr * p[1]; }
+      ctx.fill(); ctx.shadowBlur = 0; ctx.globalAlpha = a;
+    }
+    // orange — electrode lines drawn onto the tip (Pattern and Deposition)
+    if (p[0] > 0) {
+      ctx.strokeStyle = COL[0]; ctx.lineWidth = Math.max(1, h * 0.07); ctx.lineCap = "round";
+      for (let k = 0; k < 3; k++) {
+        const ly = y + h * (0.32 + k * 0.18), x0 = x + h * 0.32, x1 = x0 + (len * 0.52) * p[0];
+        ctx.beginPath(); ctx.moveTo(x0, ly); ctx.lineTo(x1, ly); ctx.stroke();
+      }
+    }
+    // purple — the chip and its wireless signal (Electronics Integration)
+    if (p[2] > 0) {
+      const s = h * 0.5, chx = x + len * 0.64, chy = cy - s / 2;
+      ctx.globalAlpha = a * p[2]; ctx.fillStyle = COL[2];
+      if (glow) { ctx.shadowColor = "#a77bff"; ctx.shadowBlur = 12 * dpr; }
+      rr(chx, chy, s, s, s * 0.18); ctx.fill(); ctx.shadowBlur = 0;
+      if (glow) {
+        ctx.strokeStyle = "#a77bff"; ctx.lineWidth = Math.max(1, h * 0.06);
+        for (let k = 1; k <= 3; k++) {
+          ctx.globalAlpha = a * p[2] * (1 - k / 4);
+          ctx.beginPath(); ctx.arc(x + len + h * 0.1, cy, h * 0.3 * k, -0.7, 0.7); ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  };
+  const frame = T => {
+    fit();
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#00004d"; ctx.fillRect(0, 0, W, H);
+    let stage = 0;
+    const fade = T > LOOP - 0.8 ? clamp((LOOP - T) / 0.8) : 1;
+    if (T < 1.4) {                                        // 1) an idea: one glowing dot
+      const r = (6 + 3 * Math.sin(T * 6)) * dpr, a = ease(T / 0.4);
+      const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, r * 5);
+      g.addColorStop(0, `rgba(255,255,255,${0.95 * a})`); g.addColorStop(0.25, `rgba(160,240,226,${0.6 * a})`); g.addColorStop(1, "rgba(160,240,226,0)");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      stage = 0;
+    } else {
+      const L1 = layout(1);
+      if (T < 5.4) {                                      // 2) prototype: the four labs add their parts in order
+        const u = T - 1.4, p = [0, 1, 2, 3].map(k => ease((u - k * 0.85) / 0.8));
+        stick(L1.pts[0][0], L1.pts[0][1], L1.len * (0.85 + 0.15 * ease(u / 0.5)), p, 1);
+        stage = 1;
+      } else {                                            // 3) scale-up: each copy divides, like a cell
+        const v = T - 5.4, per = (LOOP - 0.8 - 5.4) / DOUBLINGS;
+        const k = Math.min(DOUBLINGS, Math.floor(v / per)), u = ease(clamp((v - k * per) / (per * 0.65)));
+        const nPrev = 1 << k, nNext = 1 << Math.min(DOUBLINGS, k + 1);
+        const A = layout(nPrev), B = layout(nNext), grow = k < DOUBLINGS;
+        const len = grow ? A.len + (B.len - A.len) * u : A.len;
+        const P = [1, 1, 1, 1];
+        for (let i = 0; i < (grow ? nNext : nPrev); i++) {
+          const from = A.pts[i < nPrev ? i : i - nPrev], to = grow ? B.pts[i] : A.pts[i];
+          const q = grow ? u : 1;
+          stick(from[0] + (to[0] - from[0]) * q, from[1] + (to[1] - from[1]) * q, len, P, (i < nPrev ? 1 : q * q) * fade);
+        }
+        stage = 2;
+      }
+    }
+    for (let i = 0; i < 3; i++) $("s" + i).classList.toggle("on", i === stage);
+  };
+  const tick = now => {
+    if (visible) frame(((now - t0) / 1000) % LOOP);
+    if (!reduce) requestAnimationFrame(tick);
+  };
+  if ("IntersectionObserver" in window) new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(cv);
+  window.addEventListener("resize", () => { if (reduce) frame(8.5); });
+  return { start() { if (reduce) frame(8.5); else requestAnimationFrame(tick); } };
+})();
+
+$("tour").addEventListener("click", () => send("tour", 0));
+$("lang").addEventListener("change", e => { lang = e.target.value; try { localStorage.setItem("d2d-lang", lang); } catch (x) {} buildPage(); });
+window.addEventListener("hashchange", highlightHere);
+buildLangMenu(); buildPage(); Scale.start();
+setInterval(render, 1000); loadMqtt().then(connect);
+</script>
+</body>
+</html>
