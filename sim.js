@@ -4,7 +4,8 @@
    Sound: the synth cues are rendered sample by sample like the ESP32 does (22050 Hz); lab music is converted
    exactly like the ESP32's /audio upload page does (22050 Hz mono, loudest point 0.95, 0.5 s fade, max 60 s). */
 (function () {
-  const SR = 22050, CUE_GAIN = 3.5, FRAME_MS = 100;
+  const SR = 22050, FRAME_MS = 100;
+  const CUE_TICK = 0, CUE_CLICK = 9;                         // cueLevel() in the firmware: tick 0.5, click 0.8, rest 1
   const GRID_BYTES = (4 * 2 * 256 + 3 * 256) * 3;
   let ex = null, info = null, ready = null;
   // playback state
@@ -18,10 +19,22 @@
 
   // ---------- load the compiled firmware animations ----------
   const load = (base) => ready || (ready = (async () => {
-    const [wasm, meta] = await Promise.all([
-      fetch(base + "sim/anim.wasm").then(r => { if (!r.ok) throw new Error("sim/anim.wasm 找不到"); return r.arrayBuffer(); }),
-      fetch(base + "sim/anim.json").then(r => r.ok ? r.json() : null).catch(() => null),
-    ]);
+    let wasm, meta;
+    if (window.D2D_ANIM) {                                    // sim/anim.js: the program packed into a script (works offline)
+      const bin = atob(window.D2D_ANIM.wasm); wasm = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) wasm[i] = bin.charCodeAt(i);
+      meta = window.D2D_ANIM.info;
+    } else {
+      try {
+        [wasm, meta] = await Promise.all([
+          fetch(base + "sim/anim.wasm").then(r => { if (!r.ok) throw new Error("网站上没有 sim/anim.wasm"); return r.arrayBuffer(); }),
+          fetch(base + "sim/anim.json").then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+      } catch (e) {
+        throw new Error((e.message.includes("sim/") ? e.message : "下载不到模拟器文件") +
+          "。检查：电脑是不是连着 ESP32 的热点（没有外网）？网站的 sim 文件夹里有没有 anim.js？");
+      }
+    }
     const stubs = new Proxy({}, { get: () => () => 0 });      // the animation code never uses files or a clock
     const { instance } = await WebAssembly.instantiate(wasm, { wasi_snapshot_preview1: stubs });
     ex = instance.exports;
@@ -55,22 +68,35 @@
     for (const n of notes) len = Math.max(len, n[1] + n[5]);
     const N = Math.ceil(len * SR) + 1, data = new Float32Array(N);
     let noise = 22222;
+    // same envelope and per-cue loudness as the firmware (noteEnv, computeCueGains)
+    const env = (t, dur, atk) => {
+      if (t < 0 || t >= dur) return 0;
+      if (atk < 0) return Math.min(1, t / 0.01, (dur - t) / 0.05);
+      const u = t / dur; return t < atk ? t / atk : (1 - u) * (1 - u);
+    };
+    let peak = 0;
+    for (let t = 0; t < len; t += 0.002) {
+      let a = 0;
+      for (const [, delay, wave, , , dur, vol, atk] of notes) a += vol * (wave === 1 ? 0.6 : 1) * env(t - delay, dur, atk);
+      peak = Math.max(peak, a);
+    }
+    const gain = peak > 0 ? (cue === CUE_TICK ? 0.5 : cue === CUE_CLICK ? 0.8 : 1) / peak : 0;
     for (const [, delay, wave, f0, f1, dur, vol, atk] of notes) {
       let phase = 0;
       const s0 = Math.round(delay * SR), sn = Math.floor(dur * SR);
       for (let k = 0; k < sn && s0 + k < N; k++) {
         const t = k / SR, u = t / dur;
-        const env = t < atk ? t / atk : (1 - u) * (1 - u);
+        const e = env(t, dur, atk);
         phase += (f0 + (f1 - f0) * u) / SR; if (phase >= 1) phase -= 1;
         let w;
         if (wave === 1) w = phase < 0.5 ? 0.6 : -0.6;
         else if (wave === 2) w = 4 * Math.abs(phase - 0.5) - 1;
         else if (wave === 3) { noise = (Math.imul(noise, 1664525) + 1013904223) >>> 0; w = ((noise >>> 9) / 8388608) * 2 - 1; }
         else w = Math.sin(6.2831853 * phase);
-        data[s0 + k] += w * env * vol;
+        data[s0 + k] += w * e * vol * gain;
       }
     }
-    for (let i = 0; i < N; i++) data[i] = Math.max(-1, Math.min(1, data[i] * CUE_GAIN));
+    for (let i = 0; i < N; i++) data[i] = Math.max(-1, Math.min(1, data[i]));
     const b = ctx().createBuffer(1, N, SR); b.copyToChannel(data, 0);
     return (cueBuffers[cue] = b);
   };

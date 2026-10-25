@@ -70,7 +70,7 @@
   .mbox canvas{width:100%;aspect-ratio:1/1;border-radius:10px;display:block}
   .mbox small{font-size:11px;color:var(--muted);text-align:center}
   .mbridge{width:100%;aspect-ratio:4/1;border-radius:8px;display:block}
-  canvas.live-stale{opacity:.45}
+  canvas.live-stale{opacity:.8}
   .mono{font-family:var(--mono);font-size:13px}
   .simbar{display:flex;flex-direction:column;gap:10px}
   .simmodes button{padding:8px 12px;font-size:14px}
@@ -173,7 +173,7 @@
   <div class="card">
     <h2>本地热点 Saliva-Control</h2>
     <div class="muted">为了省电和降温，连上网 10 分钟后热点会自动关掉（电脑/手机连它时才需要）。没连上网时它一直开着。<br>
-    要用的时候：点下面的按钮，或者在现场<b>按住按钮 1 五秒</b>（会“嘀”一声），热点开 10 分钟。</div>
+    要用的时候：点下面的按钮，或者在现场<b>快速连按按钮 1 三下</b>（会“嘀”一声），热点开 10 分钟。</div>
     <div id="apState" class="muted"></div>
     <button class="g" data-c="ap">打开本地热点 10 分钟</button>
   </div>
@@ -224,6 +224,7 @@
 <div id="toast"></div>
 
 <script src="live.js"></script>
+<script src="sim/anim.js" onerror="void 0"></script>
 <script src="sim.js"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
@@ -332,14 +333,15 @@ const LABS = [["#ff5500", "Box 1 图案"], ["#56d1c2", "Box 2 感知"], ["#6d33b
   document.querySelectorAll("#map canvas[data-bridge]").forEach(c => D2DLive.addBridge(c, +c.dataset.bridge, false));
 })();
 function paint() {
-  $("liveNote").textContent = D2DLive.isLive() ? "● 实时" : "（等 ESP32 发送画面…）";
-  const playingBox = dev && dev.state === "focus" ? dev.box : 0;
-  for (let i = 1; i <= 4; i++) $("mb" + i).classList.toggle("playing", playingBox === i);
   const cloud = client && client.connected;
   $("dCloud").className = "dot " + (cloud ? "ok" : "bad");
   $("tCloud").textContent = cloud ? "云端已连上" : "云端未连上";
   // live = a new message arrived in the last 25 s, or the ESP32's own clock says it is recent
   const fresh = !!dev && (Date.now() - devAt < 25000 || (dev.ts > 1700000000 && Math.abs(Date.now() / 1000 - dev.ts) < 30));
+  $("liveNote").textContent = D2DLive.isLive() ? "● 实时" : fresh ? "（等 ESP32 发送画面…）" : "（ESP32 离线，没有实时画面 —— 可以到「模拟器」里看动画）";
+  // only mark a playing box when the news is current (an old stored status would light the wrong box)
+  const playingBox = fresh && dev.state === "focus" ? dev.box : 0;
+  for (let i = 1; i <= 4; i++) $("mb" + i).classList.toggle("playing", playingBox === i);
   const off = !fresh && pubStatus && pubStatus.s === "offline";
   $("dEsp").className = "dot " + (off ? "bad" : fresh ? "ok" : dev ? "warn" : "");
   $("tEsp").textContent = off ? "ESP32 离线" : fresh ? "ESP32 在线" : dev ? "ESP32 很久没消息" : "等 ESP32…";
@@ -353,11 +355,13 @@ function paint() {
     `<dt>状态</dt><dd>${d.sleep ? "省电待机（简单动画，有人互动就恢复）" : esc(state)}${d.test ? "（测试图案）" : ""}</dd>` +
     `<dt>本地热点</dt><dd>${d.ap ? "开" : "关（省电）"}</dd>` +
     `<dt>最近事件</dt><dd>${esc(d.event)}</dd>` +
-    `<dt>网络</dt><dd>${d.ssid ? esc(d.ssid) + " · " + d.rssi + " dBm" : "未连上"}</dd>` +
+    `<dt>网络</dt><dd>${d.ssid ? esc(d.ssid) + " · " + d.rssi + " dBm" + (d.rssi > -67 ? "（好）" : d.rssi > -78 ? "（一般）" : "（弱，容易掉线）") : "未连上"}</dd>` +
     `<dt>已运行</dt><dd>${fmtUp(d.up)}（上次开机：${esc(d.boot)}）</dd>` +
+    (d.drops ? `<dt>掉线次数</dt><dd>Wi-Fi ${d.drops.w} 次 · 云端 ${d.drops.m} 次（这次开机以来）<br><span class="muted">${esc(d.drops.last)}</span></dd>` : "") +
     `<dt>霍尔</dt><dd>${d.hall}（静止 ${d.hallBase}）</dd>` +
     `<dt>空闲内存</dt><dd>${d.heap} KB</dd>` +
-    `<dt>芯片温度</dt><dd>${d.temp ?? '-'} °C${d.temp >= 75 ? '  ⚠ 太热' : d.temp >= 60 ? '（偏热，正常范围）' : ''}</dd>` +
+    `<dt>芯片温度</dt><dd>${d.temp ?? '-'} °C${d.temp >= 75 ? '  ⚠ 太热' : d.temp >= 60 ? '（偏热，正常范围）' : '（正常）'}</dd>` +
+    (d.radio ? `<dt>无线功率</dt><dd>${d.radio} dBm${d.hot ? "（芯片偏热，已自动降低）" : d.radio > 15 ? "（信号弱，自动加大）" : "（正常，省电）"}</dd>` : "") +
     `<dt>程序版本</dt><dd>${esc(d.fw)}</dd>` +
     `<dt>最后消息</dt><dd>${d.ts > 1700000000 ? new Date(d.ts * 1000).toLocaleString() : devAt ? new Date(devAt).toLocaleTimeString() : "-"}</dd>`;
   $("netKv").innerHTML =
