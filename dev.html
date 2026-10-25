@@ -133,9 +133,10 @@
     <label>模式<select id="sMode"><option value="0">自动（传感器、按钮、观众网站有效）</option><option value="1">手动（只用控制台）</option><option value="2">一直待机</option></select></label>
     <label class="line">亮度 <input type="range" id="sBri" min="20" max="255"><span id="vBri" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
     <label class="line">总音量（0 最小 · 100 最大） <input type="range" id="sVol" min="0" max="100"><span id="vVol" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
-    <label class="line">音响 1 <input type="range" id="sS1" min="0" max="100"><span id="vS1" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
-    <label class="line">音响 2 <input type="range" id="sS2" min="0" max="100"><span id="vS2" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
-    <div class="row"><button class="g grow" data-c="spk" data-a="1">试听 音响 1</button><button class="g grow" data-c="spk" data-a="2">试听 音响 2</button><button class="g grow" data-c="spk" data-a="0">两个一起</button></div>
+    <label class="line" hidden>音响 1 <input type="range" id="sS1" min="0" max="100"><span id="vS1"></span></label>
+    <label class="line" hidden>音响 2 <input type="range" id="sS2" min="0" max="100"><span id="vS2"></span></label>
+    <div class="muted">现在只用音响 1（音响 2 的零件坏了，程序里已关掉）。总音量 0 = 2000，100 = 20000。</div>
+    <div class="row"><button class="g grow" data-c="spk" data-a="1">试听 音响 1（1.5 秒测试音）</button></div>
     <div class="muted">两个音响本身大小不一样时：先把大声的那个调低，直到两个听起来一样，再用总音量调整体大小。</div>
     <div class="row">
       <label style="flex:1;min-width:150px">霍尔灵敏度（越小越灵敏）<input type="number" id="sHall" min="50" max="2000" step="10"></label>
