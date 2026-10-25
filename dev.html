@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/d2d-icon-64.png">
+<title>Saliva 开发者控制台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;800&family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<style>
+  :root{
+    /* Discovery to Device brand: white base, navy text, four lab colours */
+    --navy:#00004d;
+    --bg:#ffffff; --panel:#ffffff; --panel2:#f5f5fa; --line:#e3e3ee; --fg:#00004d; --muted:#55557f;
+    --ok:#1fa898; --warn:#ff5500; --bad:#ff005f; --acc:#6d33bd;
+    --b1:#ff5500; --b2:#56d1c2; --b3:#6d33bd; --b4:#ff005f;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:"Lexend","Century Gothic","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-text-size-adjust:100%}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px 16px 48px;display:flex;flex-direction:column;gap:14px}
+  header{display:flex;flex-direction:column;gap:10px}
+  h1{font-size:24px;margin:0;font-weight:800}
+  .eyebrow{font:500 12px var(--mono);color:var(--muted);letter-spacing:.04em}
+  .pill{display:inline-flex;align-items:center;gap:6px;font:500 13px var(--mono);padding:4px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+  .dot.ok{background:var(--b2)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .card{background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+  .card h2{font-size:15px;margin:0}
+  nav{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}
+  nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:10px 12px;font-size:15px;cursor:pointer;white-space:nowrap;border-radius:0}
+  nav button.on{color:var(--fg);border-bottom-color:var(--acc)}
+  section.tab{display:none;flex-direction:column;gap:14px} section.tab.on{display:flex}
+  button{font:inherit;font-size:15px;font-weight:600;padding:10px 14px;border:0;border-radius:10px;background:var(--navy);color:#fff;cursor:pointer}
+  button.g{background:var(--panel2);color:var(--navy);border:1.5px solid var(--line)} button.r{background:var(--b4);color:var(--navy)}
+  button.b1{background:var(--b1);color:var(--navy)} button.b2{background:var(--b2);color:var(--navy)} button.b3{background:var(--b3);color:#fff} button.b4{background:var(--b4);color:var(--navy)}
+  nav button,nav button.g{background:none;border:0}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .grow{flex:1;min-width:110px}
+  input,select{font:inherit;font-size:16px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:#fff;color:var(--fg);width:100%}
+  input[type=range]{accent-color:var(--b3)}
+  input[type=range]{padding:0}
+  input[type=checkbox]{width:auto}
+  label{font-size:14px;display:flex;flex-direction:column;gap:5px}
+  label.line{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+  label.line input[type=range]{flex:1}
+  .muted{color:var(--muted);font-size:13px;line-height:1.6}
+  .kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:14px}
+  .kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--mono);word-break:break-all}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  @media (max-width:520px){.grid4{grid-template-columns:repeat(2,1fr)}}
+  .it{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+  .it:first-child{border-top:0}
+  pre#log{margin:0;font:12.5px/1.55 var(--mono);white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;padding:10px;max-height:60vh;overflow:auto}
+  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--navy);color:#fff;border:2px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+  #toast.show{opacity:1} #toast.ok{border-color:var(--ok)} #toast.bad{border-color:var(--bad)}
+  .warnbox{border-left:4px solid var(--warn);padding:8px 10px;background:#fff3ec;border-radius:8px;font-size:13px;line-height:1.6}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:4px}
+  /* live map of the installation: Box — bridge — Box — bridge … */
+  .map{display:grid;grid-template-columns:1fr .62fr 1fr .62fr 1fr .62fr 1fr;align-items:center;gap:8px;overflow-x:auto;padding-bottom:4px;min-width:0}
+  .mapwrap{overflow-x:auto;margin:0 -4px;padding:0 4px;position:relative}
+  .mapwrap .map{min-width:640px}
+  .mbox{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:10px;border-radius:14px;border:1.5px solid var(--line);transition:background .3s,border-color .3s;min-width:0}
+  .mbox.playing{border-color:var(--c);background:color-mix(in srgb,var(--c) 10%,#fff)}
+  .mbox b{font-size:13px;display:flex;gap:5px;align-items:center}.mbox b i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+  .mbox canvas{width:100%;aspect-ratio:1/1;border-radius:10px;display:block}
+  .mbox small{font-size:11px;color:var(--muted);text-align:center}
+  .mbridge{width:100%;aspect-ratio:4/1;border-radius:8px;display:block}
+  canvas.live-stale{opacity:.45}
+  .mono{font-family:var(--mono);font-size:13px}
+  .simbar{display:flex;flex-direction:column;gap:10px}
+  .simmodes button{padding:8px 12px;font-size:14px}
+  .simmodes button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .btnlike{display:inline-flex;align-items:center;cursor:pointer;font-size:15px;font-weight:600;padding:10px 14px;border-radius:10px;background:var(--panel2);color:var(--navy);border:1.5px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow" style="display:flex;align-items:center;gap:8px"><img src="img/d2d-icon-64.png" width="22" height="22" alt="" style="border-radius:5px">INSIDE A DROP OF SALIVA · DEVELOPER</div>
+  <h1>开发者控制台</h1>
+  <div class="row">
+    <span class="pill"><span class="dot" id="dCloud"></span><span id="tCloud">连接云端…</span></span>
+    <span class="pill"><span class="dot" id="dEsp"></span><span id="tEsp">等 ESP32…</span></span>
+    <span class="pill"><span class="dot" id="dKey"></span><span id="tKey">密钥</span></span>
+  </div>
+  <div class="row">
+    <input id="key" type="password" placeholder="开发者密钥（和 ESP32 上设置的一样）" autocomplete="current-password" style="flex:1;min-width:200px">
+    <button class="g" id="saveKey">记住</button>
+  </div>
+</header>
+
+<nav id="nav">
+  <button data-t="ov" class="on">总览</button>
+  <button data-t="ctl">控制</button>
+  <button data-t="music">音乐</button>
+  <button data-t="net">网络</button>
+  <button data-t="sim">模拟器</button>
+  <button data-t="log">日志</button>
+  <button data-t="upd">更新程序</button>
+</nav>
+
+<section class="tab on" id="ov">
+  <div class="card">
+    <h2>实时画面 <span class="muted" id="liveNote" style="font-weight:400"></span></h2>
+    <div class="mapwrap"><div class="map" id="map"></div></div>
+    <div class="muted">每个 16×16 灯板缩小一半显示（每 2×2 个灯合成 1 个点，取最亮的）；光桥 8×32 → 4×16。背板有均光膜，所以画成一片柔光；底部和光桥没有，画成一颗一颗的灯。装置离线时，可以到「模拟器」里看程序里的动画。只有打开页面时 ESP32 才会发送，每秒 4 帧。</div>
+  </div>
+  <div class="card">
+    <h2>ESP32</h2>
+    <dl class="kv" id="ovKv"><dt>状态</dt><dd>还没收到</dd></dl>
+  </div>
+  <div class="card">
+    <h2>最近日志</h2>
+    <pre id="logMini" style="margin:0;font:12px/1.5 var(--mono);white-space:pre-wrap;color:var(--muted)"></pre>
+  </div>
+</section>
+
+<section class="tab" id="ctl">
+  <div class="card">
+    <h2>播放</h2>
+    <div class="row"><button class="grow" data-c="tour">完整导览</button><button class="grow g" data-c="stop">停止 / 待机</button><button class="grow g" data-c="test">测试图案</button></div>
+    <div class="row"><button class="grow g" data-c="sleep">现在省电待机</button><button class="grow g" data-c="wake">唤醒</button></div>
+    <div class="grid4"><button class="b1" data-c="box" data-a="1">Box 1</button><button class="b2" data-c="box" data-a="2">Box 2</button><button class="b3" data-c="box" data-a="3">Box 3</button><button class="b4" data-c="box" data-a="4">Box 4</button></div>
+    <div class="muted">这里的 Box 按钮是开发者用的，不受冷却和锁定限制。</div>
+  </div>
+  <div class="card">
+    <h2>设置 <span class="muted" style="font-weight:400">（改了就发送，ESP32 会保存）</span></h2>
+    <label>模式<select id="sMode"><option value="0">自动（传感器、按钮、观众网站有效）</option><option value="1">手动（只用控制台）</option><option value="2">一直待机</option></select></label>
+    <label class="line">亮度 <input type="range" id="sBri" min="20" max="255"><span id="vBri" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
+    <label class="line">总音量（0 最小 · 100 最大） <input type="range" id="sVol" min="0" max="100"><span id="vVol" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
+    <label class="line">音响 1 <input type="range" id="sS1" min="0" max="100"><span id="vS1" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
+    <label class="line">音响 2 <input type="range" id="sS2" min="0" max="100"><span id="vS2" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
+    <div class="row"><button class="g grow" data-c="spk" data-a="1">试听 音响 1</button><button class="g grow" data-c="spk" data-a="2">试听 音响 2</button><button class="g grow" data-c="spk" data-a="0">两个一起</button></div>
+    <div class="muted">两个音响本身大小不一样时：先把大声的那个调低，直到两个听起来一样，再用总音量调整体大小。</div>
+    <div class="row">
+      <label style="flex:1;min-width:150px">霍尔灵敏度（越小越灵敏）<input type="number" id="sHall" min="50" max="2000" step="10"></label>
+      <label style="flex:1;min-width:150px">聚焦锁定秒数<input type="number" id="sLock" min="0" max="60"></label>
+      <label style="flex:1;min-width:150px">没人互动几分钟后省电待机（0 = 不用）<input type="number" id="sSlp" min="0" max="240"></label>
+    </div>
+    <div class="row" id="sBtns"></div>
+    <label class="line" style="justify-content:flex-start"><input type="checkbox" id="sRemote"> 观众网站可以点播</label>
+  </div>
+</section>
+
+<section class="tab" id="music">
+  <div class="card">
+    <h2>每个实验室的音乐</h2>
+    <div id="musicList" class="muted">还没收到</div>
+    <div class="muted">有音乐的实验室，播放时用这段音乐（从头开始，盒子结束时淡出），不再播电子提示音。“试听”只在喇叭上放 15 秒，不动灯。</div>
+  </div>
+  <div class="card">
+    <h2>上传 / 更换音乐</h2>
+    <div class="muted">音频文件比较大，要直接传给 ESP32，所以电脑要和 ESP32 在<b>同一个 Wi-Fi</b>（或者连上它的热点 Saliva-Control）。打开下面的链接，选文件 → 转换并上传，wav / mp3 / m4a 都可以，网页会自动转格式。</div>
+    <div class="row"><a id="audioLink" href="#" target="_blank"><button>打开音乐上传页面</button></a><span class="muted" id="audioIp"></span></div>
+  </div>
+</section>
+
+<section class="tab" id="net">
+  <div class="card">
+    <h2>现在的网络</h2>
+    <dl class="kv" id="netKv"></dl>
+  </div>
+  <div class="card">
+    <h2>已保存的网络</h2>
+    <div id="saved" class="muted">还没收到</div>
+    <div class="muted">“切换”会让 ESP32 先试那个网络，云端会断开十几秒。连不上的话，20 秒后它会自己换回其他已保存的网络。</div>
+  </div>
+  <div class="card">
+    <h2>本地热点 Saliva-Control</h2>
+    <div class="muted">为了省电和降温，连上网 10 分钟后热点会自动关掉（电脑/手机连它时才需要）。没连上网时它一直开着。<br>
+    要用的时候：点下面的按钮，或者在现场<b>按住按钮 1 五秒</b>（会“嘀”一声），热点开 10 分钟。</div>
+    <div id="apState" class="muted"></div>
+    <button class="g" data-c="ap">打开本地热点 10 分钟</button>
+  </div>
+  <div class="card">
+    <h2>加一个新网络</h2>
+    <div class="muted">新网络要输入密码，所以只能在现场加（密码不经过云端）：<br>
+    手机连 Wi-Fi <b>Saliva-Control</b>（密码 <code>d2d-saliva</code>），控制台会自己弹出来；没弹出就打开 <code>192.168.4.1/wifi</code> → 扫描 → 选网络 → 输密码 → 保存。<br>
+    到新场地前，可以先把那里的 Wi-Fi 或者手机热点加好，最多存 3 个，会按顺序自动试。</div>
+  </div>
+</section>
+
+<section class="tab" id="sim">
+  <div class="card">
+    <h2>模拟器 <span class="muted" style="font-weight:400">不用连 ESP32</span></h2>
+    <div class="muted">用的是程序文件里同一份动画代码（编译成网页能跑的版本），每秒 10 帧，和装置一样。现场离线、或者上传新程序前，都可以在这里先看动画、听声音。<br><span id="simSrc">—</span></div>
+    <div id="simRoot"></div>
+    <div class="warnbox">改了程序里的动画以后，要重新生成 <code>sim/anim.wasm</code>（运行 <code>tools/build_sim.py</code>，或者把新的 .ino 发给 Claude），这里才会变成新的。上面的「编号」和程序文件对得上，就说明模拟器是最新的。电脑音箱和现场喇叭的音量不同，这里只用来听内容和时间点。</div>
+  </div>
+</section>
+
+<section class="tab" id="log">
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><h2>日志（最近 40 条，时间是开机后的时:分:秒）</h2>
+      <div class="row"><button class="g" id="logRefresh">刷新</button><button class="g" id="logCopy">复制</button></div></div>
+    <pre id="log">还没收到</pre>
+  </div>
+</section>
+
+<section class="tab" id="upd">
+  <div class="card">
+    <h2>远程更新程序</h2>
+    <dl class="kv"><dt>现在的版本</dt><dd id="fwNow">-</dd></dl>
+    <ol class="muted" style="margin:0;padding-left:20px">
+      <li>Arduino IDE：Sketch → Export Compiled Binary。</li>
+      <li>把程序文件夹 build 里的 <code>D2D_Saliva_Full.ino.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹（替换旧的），等 GitHub Pages 更新约 1 分钟。</li>
+      <li>点下面的按钮。灯会关 30–90 秒，成功后版本号会变成新的编译时间。</li>
+    </ol>
+    <label>程序链接（https，以 .bin 结尾）<input id="otaUrl" autocapitalize="off" autocorrect="off"></label>
+    <button id="otaGo">更新</button>
+    <div class="warnbox">失败不会弄坏板子：下载完整并检查通过才会换程序，否则继续用旧的，日志里会写原因。<br>在现场的话也可以用本地页面 <code>192.168.4.1/update</code> 直接选文件上传。</div>
+  </div>
+  <div class="card">
+    <h2>重启</h2>
+    <button class="r" id="restart">重启 ESP32</button>
+  </div>
+</section>
+</div>
+<div id="toast"></div>
+
+<script src="live.js"></script>
+<script src="sim.js"></script>
+<script>
+// load the MQTT library without blocking the page (no internet → the page still shows)
+const loadMqtt = () => new Promise(res => {
+  if (window.mqtt) return res();
+  const s = document.createElement("script");
+  s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
+  s.onload = res; s.onerror = res; document.head.appendChild(s);
+  setTimeout(res, 8000);
+});
+const BROKER = "wss://broker.hivemq.com:8884/mqtt";
+const TOPIC  = "d2d-saliva-p6w58uii9y";     // same as the ESP32 program and the visitor site
+
+const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let client = null, dev = null, devAt = 0, pubStatus = null, logText = "", cfgFilled = false;
+const pending = {};
+
+// ---------- key (kept only in this browser) ----------
+const KEY_STORE = "saliva-dev-key";
+try { $("key").value = localStorage.getItem(KEY_STORE) || ""; } catch (e) {}
+$("saveKey").onclick = () => { try { localStorage.setItem(KEY_STORE, $("key").value); } catch (e) {} toast("已记在这个浏览器里", true); paint(); };
+
+// ---------- tabs ----------
+$("nav").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section.tab").forEach(s => s.classList.toggle("on", s.id === b.dataset.t));
+  if (b.dataset.t === "sim" && !simMounted) { simMounted = true; D2DSim.mount($("simRoot")); }
+  if (b.dataset.t !== "sim" && simMounted) D2DSim.pause();
+});
+let simMounted = false;
+
+function toast(msg, ok) {
+  const t = $("toast"); t.textContent = msg; t.className = "show " + (ok === true ? "ok" : ok === false ? "bad" : "");
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.className = "", 4200);
+}
+
+// ---------- signed commands:  time|nonce|command|argument|HMAC-SHA256(key, "time|nonce|command|argument") ----------
+async function hmacHex(key, msg) {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", k, enc.encode(msg));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function send(cmd, arg = "") {
+  const key = $("key").value;
+  if (!key) { toast("先在上面输入开发者密钥", false); return; }
+  if (!client || !client.connected) { toast("还没连上云端", false); return; }
+  if (!window.crypto || !crypto.subtle) { toast("这个浏览器不能签名命令，请用 https 网址打开", false); return; }
+  const t = Math.floor(Date.now() / 1000);
+  const n = [...crypto.getRandomValues(new Uint8Array(5))].map(b => b.toString(16).padStart(2, "0")).join("");
+  const body = `${t}|${n}|${cmd}|${arg}`;
+  const sig = await hmacHex(key, body);
+  pending[n] = cmd;
+  client.publish(TOPIC + "/dev/cmd", body + "|" + sig);
+  setTimeout(() => { if (pending[n]) { delete pending[n]; toast("ESP32 没回应（离线，或者正在忙）", false); } }, 8000);
+}
+
+// ---------- controls ----------
+document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => send(b.dataset.c, b.dataset.a || ""));
+const setOne = (k, v) => send("set", k + "=" + v);
+$("sMode").onchange = e => setOne("mode", e.target.value);
+$("sBri").oninput = e => $("vBri").textContent = e.target.value;
+$("sBri").onchange = e => setOne("bri", e.target.value);
+$("sVol").oninput = e => $("vVol").textContent = e.target.value;
+$("sVol").onchange = e => setOne("vol", e.target.value);
+for (const k of ["S1", "S2"]) {
+  $("s" + k).oninput = e => $("v" + k).textContent = e.target.value;
+  $("s" + k).onchange = e => setOne(k.toLowerCase(), e.target.value);
+}
+$("sHall").onchange = e => setOne("hall", e.target.value);
+$("sLock").onchange = e => setOne("lock", e.target.value);
+$("sSlp").onchange = e => setOne("slp", e.target.value);
+$("sRemote").onchange = e => setOne("remote", e.target.checked ? 1 : 0);
+$("logRefresh").onclick = () => send("log");
+$("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
+$("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Full.ino.bin", location.href).href;
+else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
+$("otaGo").onclick = () => {
+  const u = $("otaUrl").value.trim();
+  if (!/^https:\/\/.+\.bin$/i.test(u)) { toast("链接要以 https:// 开头、.bin 结尾", false); return; }
+  if (confirm("确定更新？灯会关掉 30–90 秒")) send("ota", u);
+};
+window.netCmd = (c, i) => {
+  if (c === "del" && !confirm("从 ESP32 删除这个网络？")) return;
+  send(c, String(i));
+};
+
+// ---------- rendering ----------
+const fmtUp = s => { s = +s || 0; const h = Math.floor(s / 3600), m = Math.floor(s / 60 % 60); return (h ? h + " 小时 " : "") + m + " 分"; };
+const ST = { idle: "待机", tour: "导览", focus: "聚焦", offline: "离线" };
+// ---------- live map ----------
+const LABS = [["#ff5500", "Box 1 图案"], ["#56d1c2", "Box 2 感知"], ["#6d33bd", "Box 3 连接"], ["#ff005f", "Box 4 组装"]];
+(function buildMap() {
+  let h = "";
+  LABS.forEach(([c, n], i) => {
+    h += `<div class="mbox" id="mb${i + 1}" style="--c:${c}"><b><i></i>${n}</b>
+      <canvas data-box="${i}" data-part="1"></canvas><small>背板 · 有均光膜</small>
+      <canvas data-box="${i}" data-part="0"></canvas><small>底部 · 无均光膜</small></div>`;
+    if (i < 3) h += `<canvas class="mbridge" data-bridge="${i}" title="光桥 ${i + 1}"></canvas>`;
+  });
+  $("map").innerHTML = h;
+  document.querySelectorAll("#map canvas[data-part]").forEach(c => D2DLive.addPanel(c, +c.dataset.box, +c.dataset.part));
+  document.querySelectorAll("#map canvas[data-bridge]").forEach(c => D2DLive.addBridge(c, +c.dataset.bridge, false));
+})();
+function paint() {
+  $("liveNote").textContent = D2DLive.isLive() ? "● 实时" : "（等 ESP32 发送画面…）";
+  const playingBox = dev && dev.state === "focus" ? dev.box : 0;
+  for (let i = 1; i <= 4; i++) $("mb" + i).classList.toggle("playing", playingBox === i);
+  const cloud = client && client.connected;
+  $("dCloud").className = "dot " + (cloud ? "ok" : "bad");
+  $("tCloud").textContent = cloud ? "云端已连上" : "云端未连上";
+  // live = a new message arrived in the last 25 s, or the ESP32's own clock says it is recent
+  const fresh = !!dev && (Date.now() - devAt < 25000 || (dev.ts > 1700000000 && Math.abs(Date.now() / 1000 - dev.ts) < 30));
+  const off = !fresh && pubStatus && pubStatus.s === "offline";
+  $("dEsp").className = "dot " + (off ? "bad" : fresh ? "ok" : dev ? "warn" : "");
+  $("tEsp").textContent = off ? "ESP32 离线" : fresh ? "ESP32 在线" : dev ? "ESP32 很久没消息" : "等 ESP32…";
+  const hasKey = !!$("key").value;
+  $("dKey").className = "dot " + (dev && !dev.key ? "bad" : hasKey ? "ok" : "warn");
+  $("tKey").textContent = dev && !dev.key ? "ESP32 没设密钥" : hasKey ? "密钥已填" : "没填密钥（只能看）";
+  if (!dev) return;
+  const d = dev;
+  const state = (ST[d.state] || d.state) + (d.state === "focus" ? " Box " + d.box : "");
+  $("ovKv").innerHTML =
+    `<dt>状态</dt><dd>${d.sleep ? "省电待机（简单动画，有人互动就恢复）" : esc(state)}${d.test ? "（测试图案）" : ""}</dd>` +
+    `<dt>本地热点</dt><dd>${d.ap ? "开" : "关（省电）"}</dd>` +
+    `<dt>最近事件</dt><dd>${esc(d.event)}</dd>` +
+    `<dt>网络</dt><dd>${d.ssid ? esc(d.ssid) + " · " + d.rssi + " dBm" : "未连上"}</dd>` +
+    `<dt>已运行</dt><dd>${fmtUp(d.up)}（上次开机：${esc(d.boot)}）</dd>` +
+    `<dt>霍尔</dt><dd>${d.hall}（静止 ${d.hallBase}）</dd>` +
+    `<dt>空闲内存</dt><dd>${d.heap} KB</dd>` +
+    `<dt>芯片温度</dt><dd>${d.temp ?? '-'} °C${d.temp >= 75 ? '  ⚠ 太热' : d.temp >= 60 ? '（偏热，正常范围）' : ''}</dd>` +
+    `<dt>程序版本</dt><dd>${esc(d.fw)}</dd>` +
+    `<dt>最后消息</dt><dd>${d.ts > 1700000000 ? new Date(d.ts * 1000).toLocaleString() : devAt ? new Date(devAt).toLocaleTimeString() : "-"}</dd>`;
+  $("netKv").innerHTML =
+    `<dt>网络</dt><dd>${d.ssid ? esc(d.ssid) : "未连上"}</dd><dt>信号</dt><dd>${d.rssi ? d.rssi + " dBm" + (d.rssi > -67 ? "（好）" : d.rssi > -78 ? "（一般）" : "（弱）") : "-"}</dd>` +
+    `<dt>IP</dt><dd>${esc(d.ip)}</dd><dt>MAC</dt><dd>${esc(d.mac)}</dd>`;
+  $("saved").innerHTML = d.saved.length ? d.saved.map((n, i) =>
+    `<div class="it"><span>${i + 1}. <b>${esc(n.s)}</b> <span class="muted">${n.e ? "学校登录" : "普通"}${n.s === d.ssid ? " · 正在用" : ""}</span></span>` +
+    `<span class="row">${n.s === d.ssid ? "" : `<button class="g" onclick="netCmd('net',${i})">切换</button><button class="r" onclick="netCmd('del',${i})">删</button>`}</span></div>`).join("")
+    : '<div class="muted">没有保存的网络</div>';
+  $("fwNow").textContent = d.fw;
+  if (d.aud) {
+    $("musicList").innerHTML = LABS.map(([c, n], i) => `<div class="it"><span><b style="color:${c}">●</b> ${n} <span class="muted">${d.aud[i] ? d.aud[i].toFixed(1) + " 秒音乐" : "电子提示音"}</span></span>` +
+      (d.aud[i] ? `<button class="g" onclick="send('atest','${i + 1}')">试听</button>` : "") + `</div>`).join("");
+  }
+  const ip = d.ip && d.ip !== "-" ? d.ip : "192.168.4.1";
+  $("audioLink").href = "http://" + ip + "/audio";
+  $("audioIp").textContent = "http://" + ip + "/audio";
+  $("apState").textContent = "现在：" + (d.ap ? "开着" : "关着（省电）");
+  if (!cfgFilled && d.cfg) {
+    const c = d.cfg;
+    $("sMode").value = c.mode; $("sBri").value = c.bri; $("vBri").textContent = c.bri; $("sVol").value = c.vol; $("vVol").textContent = c.vol;
+    $("sS1").value = c.s1; $("vS1").textContent = c.s1; $("sS2").value = c.s2; $("vS2").textContent = c.s2;
+    $("sHall").value = c.hall; $("sLock").value = c.lock; $("sSlp").value = c.slp ?? 10; $("sRemote").checked = !!c.remote;
+    $("sBtns").innerHTML = c.btn.map((v, i) => `<label class="line" style="justify-content:flex-start"><input type="checkbox" ${v ? "checked" : ""} onchange="send('set','b${i + 1}='+(this.checked?1:0))"> 按钮 ${i + 1}</label>`).join("");
+    cfgFilled = true;
+  }
+}
+function showLog(t) {
+  logText = t;
+  const el = $("log"); const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+  el.textContent = t || "（空）"; if (atEnd) el.scrollTop = el.scrollHeight;
+  $("logMini").textContent = t.trim().split("\n").slice(-6).join("\n");
+}
+
+// ---------- cloud ----------
+function connect() {
+  if (!window.mqtt) { $("tCloud").textContent = "mqtt 库没加载（没网？）"; return; }
+  client = mqtt.connect(BROKER, { clientId: "d2d-dev-" + Math.random().toString(16).slice(2, 10), reconnectPeriod: 3000, connectTimeout: 8000, clean: true });
+  D2DLive.start(client, TOPIC);
+  client.on("connect", () => { client.subscribe([TOPIC + "/status", TOPIC + "/dev/status", TOPIC + "/dev/log", TOPIC + "/dev/ack"]); paint(); });
+  client.on("close", paint);
+  client.on("message", (topic, buf, packet) => {
+    const s = buf.toString();
+    if (topic.endsWith("/dev/log")) { showLog(s); return; }
+    let j; try { j = JSON.parse(s); } catch (e) { return; }
+    if (topic.endsWith("/dev/status")) {
+      const fwChanged = dev && dev.fw !== j.fw;
+      dev = j; devAt = packet && packet.retain ? 0 : Date.now(); /* a stored (retained) copy is not proof it is online */ if (fwChanged) { cfgFilled = false; toast("程序版本变了：" + j.fw, true); }
+    } else if (topic.endsWith("/dev/ack")) {
+      if (pending[j.n] !== undefined) { delete pending[j.n]; toast(j.m, j.ok); }
+    } else { pubStatus = j; }
+    paint();
+  });
+}
+setInterval(paint, 5000);
+loadMqtt().then(connect);
+</script>
+</body>
+</html>
