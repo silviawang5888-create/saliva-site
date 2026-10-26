@@ -13,7 +13,8 @@
   // sound
   let actx = null, out = null, soundOn = true, volume = 0.7;
   const cueBuffers = {};
-  const music = [null, null, null, null];          // { buf: AudioBuffer, name, sec, from }
+  const JOURNEY = 4, JOURNEY_BOXES = 3;              // like the firmware: track 4 = the whole soundtrack Box 1 → 3
+  const music = [null, null, null, null, null];    // { buf: AudioBuffer, name, sec, from }
   let mSrc = null, mGain = null, mBox = -1, mStartCtx = 0, mStartPos = 0;
   let ui = null;
 
@@ -40,10 +41,11 @@
     ex = instance.exports;
     if (ex._initialize) ex._initialize();
     info = meta;
-    for (let b = 0; b < 4; b++) {                             // music that ships with the website: audio/box1.wav …
+    for (let b = 0; b <= JOURNEY; b++) {                      // sound that ships with the website: audio/box1.wav … audio/journey.wav
+      const f = b === JOURNEY ? "journey.wav" : "box" + (b + 1) + ".wav";
       try {
-        const r = await fetch(base + "audio/box" + (b + 1) + ".wav");
-        if (r.ok) await setMusic(b, await r.arrayBuffer(), "网站上的 audio/box" + (b + 1) + ".wav", "site");
+        const r = await fetch(base + "audio/" + f);
+        if (r.ok) await setMusic(b, await r.arrayBuffer(), "网站上的 audio/" + f, "site");
       } catch (e) {}
     }
     return ex;
@@ -105,9 +107,9 @@
     const s = ctx().createBufferSource(); s.buffer = cueBuffer(cue); s.connect(out); s.start();
   };
   // convert like the ESP32 upload page
-  const convert = async (arrayBuffer) => {
+  const convert = async (arrayBuffer, maxS) => {
     const dec = await ctx().decodeAudioData(arrayBuffer.slice(0));
-    const sec = Math.min(dec.duration, 60), n = Math.floor(sec * SR);
+    const sec = Math.min(dec.duration, maxS), n = Math.floor(sec * SR);
     const oc = new OfflineAudioContext(1, n, SR);
     const src = oc.createBufferSource(); src.buffer = dec; src.connect(oc.destination); src.start();
     const o = (await oc.startRendering()).getChannelData(0);
@@ -122,12 +124,12 @@
     return { buf: b, sec, orig: dec.duration };
   };
   const setMusic = async (b, arrayBuffer, name, from) => {
-    const c = await convert(arrayBuffer);
+    const c = await convert(arrayBuffer, b === JOURNEY ? 120 : 60);
     music[b] = { buf: c.buf, sec: c.sec, orig: c.orig, name, from };
-    ex.setTrack(b, 1);
+    ex.setTrack(b, 1, c.sec);
     stopMusic(); refreshMusic();
   };
-  const clearMusic = (b) => { music[b] = null; if (ex) ex.setTrack(b, 0); stopMusic(); refreshMusic(); };
+  const clearMusic = (b) => { music[b] = null; if (ex) ex.setTrack(b, 0, 0); stopMusic(); refreshMusic(); };
   const stopMusic = () => {
     if (mSrc) { const g = mGain, s = mSrc, t = actx.currentTime; g.gain.setTargetAtTime(0, t, 0.03); s.stop(t + 0.2); }
     mSrc = null; mBox = -1;
@@ -149,7 +151,8 @@
   };
 
   // ---------- one frame ----------
-  const length = () => mode === "tour" ? ex.tourEnd() : mode === "focus" ? ex.focusEnd() : mode === "idle" ? 60 : 0;
+  const length = () => mode === "tour" ? ex.tourEnd() : mode === "focus" ? ex.focusEnd(box) : mode === "idle" ? 60 : 0;
+  const covers = (b) => !!music[JOURNEY] && b < JOURNEY_BOXES;
   const render = (silent) => {
     let alive = true;
     if (mode === "tour") { if (T >= ex.tourEnd()) { alive = false; ex.idle(0); } else ex.tour(T); }
@@ -162,8 +165,14 @@
       for (const cue of c) playCue(cue);
     }
     let wb = -1, wp = 0;
-    if (mode === "tour") for (let i = 0; i < 4; i++) { const lt = T - ex.boxStart(i); if (lt >= 0 && lt < ex.boxS()) { wb = i; wp = lt; } }
-    else if (mode === "focus" && alive) { wb = box; wp = T; }
+    // same choice as the firmware's main loop
+    if (mode === "tour") {
+      if (music[JOURNEY] && T < music[JOURNEY].sec) { wb = JOURNEY; wp = T; }
+      else for (let i = 0; i < 4; i++) { const lt = T - ex.boxStart(i); if (lt >= 0 && lt < ex.boxS(i) && !covers(i)) { wb = i; wp = lt; } }
+    } else if (mode === "focus" && alive) {
+      if (covers(box)) { if (T < ex.boxS(box)) { wb = JOURNEY; wp = ex.boxStart(box) + T; } }
+      else { wb = box; wp = T; }
+    }
     syncMusic(wb, wp);
     draw();
     return alive;
@@ -195,7 +204,7 @@
     });
     // which box is "on" right now
     let on = -1;
-    if (mode === "tour" && T < ex.tourEnd()) for (let i = 0; i < 4; i++) { const lt = T - ex.boxStart(i); if (lt >= 0 && lt < ex.boxS()) on = i; }
+    if (mode === "tour" && T < ex.tourEnd()) for (let i = 0; i < 4; i++) { const lt = T - ex.boxStart(i); if (lt >= 0 && lt < ex.boxS(i)) on = i; }
     if (mode === "focus") on = box;
     ui.boxes.forEach((el, i) => el.classList.toggle("playing", on === i));
   };
@@ -204,12 +213,12 @@
   const where = () => {
     if (mode === "test") return "测试图案（看每块灯板方向对不对）";
     if (mode === "idle") return "待机动画";
-    if (mode === "focus") return "只播 Box " + (box + 1) + (T >= ex.boxS() ? " · 播完，停在最后的画面然后淡出" : " · 盒内 " + fmt(T) + " / " + ex.boxS() + " s");
+    if (mode === "focus") return "只播 Box " + (box + 1) + (T >= ex.boxS(box) ? " · 播完，停在最后的画面然后淡出" : " · 盒内 " + fmt(T) + " / " + ex.boxS(box) + " s");
     if (T >= ex.tourEnd()) return "导览结束 → 回到待机";
     for (let i = 3; i >= 0; i--) {
       const lt = T - ex.boxStart(i);
-      if (lt >= ex.boxS() && i < 3 && lt < ex.boxS() + ex.bridgeS()) return "光桥 " + (i + 1) + " · " + fmt(lt - ex.boxS()) + " / " + ex.bridgeS() + " s";
-      if (lt >= 0 && lt < ex.boxS()) return "Box " + (i + 1) + " · 盒内 " + fmt(lt) + " / " + ex.boxS() + " s";
+      if (lt >= ex.boxS(i) && i < 3 && lt < ex.boxS(i) + ex.bridgeS(i)) return "光桥 " + (i + 1) + " · " + fmt(lt - ex.boxS(i)) + " / " + ex.bridgeS(i) + " s";
+      if (lt >= 0 && lt < ex.boxS(i)) return "Box " + (i + 1) + " · 盒内 " + fmt(lt) + " / " + ex.boxS(i) + " s";
     }
     return "结尾保持 / 淡出";
   };
@@ -228,8 +237,11 @@
     if (!ui) return;
     ui.music.forEach((row, b) => {
       const m = music[b];
-      row.state.textContent = m
-        ? `${m.name} · 转换后 ${m.sec.toFixed(1)} 秒${m.orig > 60 ? "（原来 " + m.orig.toFixed(0) + " 秒，只保留前 60 秒）" : ""}${m.sec < ex.boxS() ? " · 比盒子短，后面没声音" : ""} → 这个盒子的电子提示音不播`
+      const cap = b === JOURNEY ? 120 : 60;
+      row.state.textContent = b === JOURNEY
+        ? (m ? `${m.name} · ${m.sec.toFixed(1)} 秒 → 导览从 Box 1 开始一直播到底，代替 Box 1–3 和光桥的提示音` : "没有 → Box 1–3 用各自的音乐或电子提示音")
+        : covers(b) ? "由「完整旅程」负责（单独播这个盒子时播它对应的那一段）"
+        : m ? `${m.name} · 转换后 ${m.sec.toFixed(1)} 秒${m.orig > cap ? "（原来 " + m.orig.toFixed(0) + " 秒，只保留前 " + cap + " 秒）" : ""}${m.sec < ex.boxS(b) ? " · 比盒子短，后面没声音" : ""} → 这个盒子的电子提示音不播`
         : "没有音乐 → 播放程序里的电子提示音";
       row.clear.hidden = !m;
     });
@@ -270,12 +282,12 @@
       let h = "";
       LABS.forEach(([c, n], i) => {
         h += `<div class="mbox" style="--c:${c}"><b><i></i>${n}</b>
-          <canvas data-b="${i}" data-part="1"></canvas><small>背板 · 有均光膜</small>
-          <canvas data-b="${i}" data-part="0"></canvas><small>底部 · 无均光膜</small></div>`;
-        if (i < 3) h += `<canvas class="mbridge" data-br="${i}" title="光桥 ${i + 1}"></canvas>`;
+          <canvas data-b="${i}" data-part="1"></canvas><small>背板 · 均光膜</small>
+          <canvas data-b="${i}" data-part="0"></canvas><small>底部</small></div>`;
+        if (i < 3) h += `<div class="mbcol"><div class="mbslot"><canvas class="mbridge" data-br="${i}" title="光桥 ${i + 1}"></canvas></div></div>`;
       });
       root.querySelector("#simMap").innerHTML = h;
-      root.querySelector("#simMusic").innerHTML = LABS.map(([c, n], i) => `
+      root.querySelector("#simMusic").innerHTML = LABS.concat([["#00004d", "完整旅程 Box 1→3"]]).map(([c, n], i) => `
         <div class="it" style="flex-wrap:wrap"><b style="min-width:90px;color:${c === "#56d1c2" ? "#1a8f82" : c}">${n}</b>
           <span class="muted" style="flex:1;min-width:180px" data-ms="${i}"></span>
           <span class="row" style="gap:6px"><label class="g btnlike">选音乐<input type="file" accept="audio/*,.wav,.mp3,.m4a" data-mf="${i}" hidden></label>
@@ -291,7 +303,7 @@
         boxes: [...root.querySelectorAll(".mbox")],
         modes: [...root.querySelectorAll(".simmodes button")],
         play: $("#simPlay"), seek: $("#simSeek"), time: $("#simTime"), where: $("#simWhere"), speedNote: $("#simSpeedNote"),
-        music: [0, 1, 2, 3].map(i => ({ state: root.querySelector(`[data-ms="${i}"]`), clear: root.querySelector(`[data-mc="${i}"]`) })),
+        music: [0, 1, 2, 3, 4].map(i => ({ state: root.querySelector(`[data-ms="${i}"]`), clear: root.querySelector(`[data-mc="${i}"]`) })),
       };
       ui.where.textContent = "加载程序里的动画…";
       try { await load(base); }
@@ -322,7 +334,7 @@
       }));
       root.querySelectorAll("[data-mc]").forEach(btn => btn.addEventListener("click", () => clearMusic(+btn.dataset.mc)));
       root.querySelectorAll("[data-mt]").forEach(btn => btn.addEventListener("click", () => {   // hear this box: start its focus
-        const b = +btn.dataset.mt; mode = "focus"; box = b; ended = false; stopMusic(); seek(0); playing = true; last = performance.now(); ctx(); updateUi(); showBox(b);
+        const b = +btn.dataset.mt; if (b === JOURNEY) { mode = "tour"; box = 0; } else { mode = "focus"; box = b; } ended = false; stopMusic(); seek(0); playing = true; last = performance.now(); ctx(); updateUi(); showBox(b === JOURNEY ? 0 : b);
         root.querySelector(".simbar").scrollIntoView({ block: "start", behavior: "smooth" });
       }));
       refreshMusic();

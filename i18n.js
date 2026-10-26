@@ -11,6 +11,9 @@ window.D2D_LANGS = [
 window.D2D_TEXT = {
 // ============================================================ English
 en: {
+  soundBtn: "Play the sound on this phone", soundOnTxt: "Sound on this phone · tap to stop",
+  soundHint: "Can't hear the speaker, or it's noisy? Play the sound here — it follows the boxes. Headphones help.",
+  soundWait: "Sound starts when a lab or the journey plays.", soundPlaying: "Playing in time with the boxes.",
   navAbout: "About D2D",
   langLabel: "Language",
   lead: "Follow one drop of saliva through the four labs that turn an idea into a medical device.",
@@ -59,6 +62,9 @@ en: {
 
 // ============================================================ 简体中文
 zh: {
+  soundBtn: "用这部手机播放声音", soundOnTxt: "手机正在出声 · 点一下关掉",
+  soundHint: "听不到喇叭，或者现场太吵？在这里播放声音，会跟着盒子同步。戴耳机效果更好。",
+  soundWait: "有实验室或完整旅程在播放时，声音就会开始。", soundPlaying: "正在和盒子同步播放。",
   navAbout: "关于 D2D",
   langLabel: "语言",
   lead: "跟着一滴唾液，走过把想法变成医疗设备的四个实验室。",
@@ -107,6 +113,9 @@ zh: {
 
 // ============================================================ 繁體中文
 "zh-Hant": {
+  soundBtn: "用這支手機播放聲音", soundOnTxt: "手機正在出聲 · 點一下關掉",
+  soundHint: "聽不到喇叭，或現場太吵？在這裡播放聲音，會跟著盒子同步。戴耳機效果更好。",
+  soundWait: "有實驗室或完整旅程在播放時，聲音就會開始。", soundPlaying: "正在和盒子同步播放。",
   navAbout: "關於 D2D",
   langLabel: "語言",
   lead: "跟著一滴唾液，走過把想法變成醫療設備的四個實驗室。",
@@ -155,6 +164,9 @@ zh: {
 
 // ============================================================ Tiếng Việt
 vi: {
+  soundBtn: "Phát âm thanh trên điện thoại này", soundOnTxt: "Đang phát trên điện thoại · chạm để tắt",
+  soundHint: "Không nghe rõ loa hoặc quá ồn? Phát âm thanh ở đây — nó chạy theo các hộp. Nên dùng tai nghe.",
+  soundWait: "Âm thanh bắt đầu khi một phòng thí nghiệm hoặc cả hành trình được phát.", soundPlaying: "Đang phát cùng lúc với các hộp.",
   navAbout: "Về D2D",
   langLabel: "Ngôn ngữ",
   lead: "Theo chân một giọt nước bọt qua bốn phòng thí nghiệm biến ý tưởng thành thiết bị y tế.",
@@ -203,6 +215,9 @@ vi: {
 
 // ============================================================ हिन्दी
 hi: {
+  soundBtn: "इस फ़ोन पर आवाज़ चलाएँ", soundOnTxt: "फ़ोन पर आवाज़ चल रही है · बंद करने के लिए टैप करें",
+  soundHint: "स्पीकर सुनाई नहीं दे रहा या शोर है? यहाँ आवाज़ चलाएँ — यह बॉक्स के साथ चलती है। हेडफ़ोन बेहतर रहेंगे।",
+  soundWait: "जब कोई प्रयोगशाला या पूरी यात्रा चलेगी, आवाज़ शुरू होगी।", soundPlaying: "बॉक्स के साथ-साथ चल रही है।",
   navAbout: "D2D परिचय",
   langLabel: "भाषा",
   lead: "लार की एक बूंद के साथ उन चार प्रयोगशालाओं की यात्रा करें जो एक विचार को चिकित्सा उपकरण में बदलती हैं।",
@@ -251,6 +266,9 @@ hi: {
 
 // ============================================================ Bahasa Indonesia
 id: {
+  soundBtn: "Putar suara di ponsel ini", soundOnTxt: "Suara di ponsel menyala · ketuk untuk berhenti",
+  soundHint: "Speaker tidak terdengar atau ramai? Putar suaranya di sini — mengikuti kotak. Lebih baik pakai headphone.",
+  soundWait: "Suara mulai saat sebuah lab atau seluruh perjalanan diputar.", soundPlaying: "Diputar bersamaan dengan kotak.",
   navAbout: "Tentang D2D",
   langLabel: "Bahasa",
   lead: "Ikuti setetes air liur melewati empat laboratorium yang mengubah ide menjadi alat medis.",
@@ -299,6 +317,9 @@ id: {
 
 // ============================================================ 日本語
 ja: {
+  soundBtn: "このスマホで音を再生", soundOnTxt: "スマホで再生中 · タップで停止",
+  soundHint: "スピーカーが聞こえない・うるさいときは、ここで音を再生できます。ボックスと同期します。イヤホンがおすすめです。",
+  soundWait: "ラボか全行程が再生されると音が始まります。", soundPlaying: "ボックスと同期して再生中です。",
   navAbout: "D2Dについて",
   langLabel: "言語",
   lead: "一滴の唾液とともに、アイデアを医療機器に変える4つのラボをめぐりましょう。",
@@ -347,6 +368,9 @@ ja: {
 
 // ============================================================ 한국어
 ko: {
+  soundBtn: "이 휴대폰으로 소리 듣기", soundOnTxt: "휴대폰에서 재생 중 · 눌러서 끄기",
+  soundHint: "스피커가 안 들리거나 시끄러우면 여기서 소리를 재생하세요. 상자와 맞춰 재생됩니다. 이어폰을 쓰면 더 좋아요.",
+  soundWait: "연구실이나 전체 여정이 재생되면 소리가 시작됩니다.", soundPlaying: "상자와 맞춰 재생 중입니다.",
   navAbout: "D2D 소개",
   langLabel: "언어",
   lead: "침 한 방울을 따라, 아이디어를 의료 기기로 바꾸는 네 개의 연구실을 둘러보세요.",

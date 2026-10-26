@@ -44,6 +44,12 @@
   .dot.busy{background:var(--c1);box-shadow:0 0 0 4px rgba(255,85,0,.18)}
   .status p{margin:0;font-size:15px;line-height:1.45;font-weight:600}
   .status small{display:block;color:var(--muted);font-size:13px;margin-top:2px;font-weight:400}
+  .sound{display:flex;flex-direction:column;gap:6px}
+  .soundbtn{appearance:none;display:flex;align-items:center;justify-content:center;gap:10px;border:1.5px solid var(--navy);background:var(--white);color:var(--navy);border-radius:14px;padding:13px 16px;font:700 15px var(--sans);cursor:pointer}
+  .soundbtn[aria-pressed="true"]{background:var(--navy);color:var(--white)}
+  .soundbtn .w1,.soundbtn .w2{opacity:.35}
+  .soundbtn[aria-pressed="true"] .w1,.soundbtn[aria-pressed="true"] .w2{opacity:1}
+  .sound small{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5}
   .journey{display:flex;flex-direction:column;align-items:stretch}
   .card{border:1.5px solid var(--line);border-top:5px solid var(--c);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;background:var(--white);transition:background .3s,border-color .3s}
   .card.here{border-color:var(--c)}
@@ -157,6 +163,13 @@
   <div class="status" role="status" aria-live="polite">
     <span class="dot" id="dot"></span>
     <p><span id="stMain">Connecting…</span><small id="stSub"></small></p>
+  </div>
+  <div class="sound">
+    <button class="soundbtn" id="soundBtn" type="button" aria-pressed="false">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="w1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M19 5a10 10 0 0 1 0 14"/></svg>
+      <span id="soundTxt"></span>
+    </button>
+    <small id="soundSub"></small>
   </div>
 
   <div class="journey" id="journey"></div>
@@ -344,6 +357,7 @@ const connect = () => {
   client.on("message", (topic, payload, packet) => {
     if (topic !== TOPIC + "/status") return;
     try { st = JSON.parse(payload.toString()); st.retained = !!(packet && packet.retain); lastMsg = Date.now(); } catch (e) { return; }
+    soundFromStatus();
     if (pending) {
       const ok = (pending.box && st.s === "focus" && st.b === pending.box) || (!pending.box && st.s === "tour");
       if (ok) { pending = null; toast(t("accepted"), 2000); }
@@ -352,6 +366,47 @@ const connect = () => {
   });
   client.on("close", render);
 };
+
+// ===== Sound on the visitor's phone (backup for the one speaker / a noisy room) =====
+// The ESP32 sends which sound file plays (at), from where (ap, s), where that part ends (ae) and the exact clock
+// time it measured this (ms). The phone plays the same file at the same place and keeps correcting itself.
+const SOUND_FILES = { 4: "audio/journey.mp3" };          // track 4 = Chan's soundtrack Box 1 → 3
+let soundOn = false, sAudio = null, sRef = null;
+const soundPos = () => {
+  if (!sRef) return null;
+  const t = sRef.ap + (Date.now() - sRef.t0) / 1000;
+  return t < sRef.ae ? t : null;
+};
+const soundTick = () => {
+  if (!soundOn || !sAudio) return;
+  const fresh = isFresh(), want = fresh && sRef && SOUND_FILES[sRef.at] ? soundPos() : null;
+  if (want === null) { if (!sAudio.paused) sAudio.pause(); return; }
+  const file = SOUND_FILES[sRef.at];
+  if (!sAudio.src.endsWith(file)) { sAudio.src = file; }
+  if (sAudio.paused) { try { sAudio.currentTime = want; } catch (e) {} sAudio.play().catch(() => {}); }
+  else if (Math.abs(sAudio.currentTime - want) > 0.35) { try { sAudio.currentTime = want; } catch (e) {} }
+};
+const soundFromStatus = () => {
+  if (!st || st.at === undefined) return;
+  const skewOk = st.ms > 0 && Math.abs(Date.now() - st.ms) < 5000;   // phone and ESP32 clocks agree (both set from the internet)
+  sRef = { at: st.at, ap: st.ap || 0, ae: st.ae || 0, t0: skewOk ? st.ms : Date.now() };
+  soundTick();
+};
+const soundUi = () => {
+  $("soundBtn").setAttribute("aria-pressed", soundOn ? "true" : "false");
+  $("soundTxt").textContent = soundOn ? t("soundOnTxt") : t("soundBtn");
+  const playing = soundOn && sAudio && !sAudio.paused;
+  $("soundSub").textContent = !soundOn ? t("soundHint") : playing ? t("soundPlaying") : t("soundWait");
+};
+$("soundBtn").addEventListener("click", () => {
+  soundOn = !soundOn;
+  if (soundOn) {
+    if (!sAudio) { sAudio = new Audio(); sAudio.preload = "auto"; sAudio.src = SOUND_FILES[4]; sAudio.addEventListener("playing", soundUi); sAudio.addEventListener("pause", soundUi); }
+    sAudio.play().then(() => { if (soundPos() === null) sAudio.pause(); soundTick(); }).catch(() => {});   // the tap unlocks sound on phones
+  } else if (sAudio) sAudio.pause();
+  soundUi();
+});
+setInterval(() => { soundTick(); soundUi(); }, 250);
 
 // ===== Video: loads only when tapped (nothing from YouTube until then) =====
 // YouTube only plays embedded videos when it can see which website they are on (the "referrer").

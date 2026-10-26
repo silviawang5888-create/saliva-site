@@ -61,15 +61,19 @@
   .warnbox{border-left:4px solid var(--warn);padding:8px 10px;background:#fff3ec;border-radius:8px;font-size:13px;line-height:1.6}
   code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:4px}
   /* live map of the installation: Box — bridge — Box — bridge … */
-  .map{display:grid;grid-template-columns:1fr .62fr 1fr .62fr 1fr .62fr 1fr;align-items:center;gap:8px;overflow-x:auto;padding-bottom:4px;min-width:0}
-  .mapwrap{overflow-x:auto;margin:0 -4px;padding:0 4px;position:relative}
-  .mapwrap .map{min-width:640px}
-  .mbox{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:10px;border-radius:14px;border:1.5px solid var(--line);transition:background .3s,border-color .3s;min-width:0}
+  /* live map drawn to scale, like the real row: each 8x32 bridge = 2 panels long, half a panel high,
+     joined to the middle of the backlights (backlight rows 4–11) */
+  .mapwrap{overflow-x:auto;margin:0 -4px;padding:0 4px;position:relative;container-type:inline-size}
+  .map{--p:max(56px,calc((100cqw - 60px) / 10));display:grid;gap:0;align-items:start;padding-bottom:4px;
+    grid-template-columns:calc(var(--p) + 15px) calc(var(--p) * 2) calc(var(--p) + 15px) calc(var(--p) * 2) calc(var(--p) + 15px) calc(var(--p) * 2) calc(var(--p) + 15px)}
+  .mbox{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:8px 6px;border-radius:12px;border:1.5px solid var(--line);transition:background .3s,border-color .3s;min-width:0}
   .mbox.playing{border-color:var(--c);background:color-mix(in srgb,var(--c) 10%,#fff)}
-  .mbox b{font-size:13px;display:flex;gap:5px;align-items:center}.mbox b i{width:8px;height:8px;border-radius:50%;background:var(--c)}
-  .mbox canvas{width:100%;aspect-ratio:1/1;border-radius:10px;display:block}
-  .mbox small{font-size:11px;color:var(--muted);text-align:center}
-  .mbridge{width:100%;aspect-ratio:4/1;border-radius:8px;display:block}
+  .mbox b{font-size:12.5px;height:18px;line-height:18px;display:flex;gap:5px;align-items:center;white-space:nowrap;overflow:hidden;padding:0 2px}.mbox b i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+  .mbox canvas{width:100%;aspect-ratio:1/1;border-radius:6px;display:block}
+  .mbox small{font-size:11px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden}
+  .mbcol{padding-top:calc(1.5px + 8px + 18px + 6px);min-width:0}
+  .mbslot{height:var(--p);display:flex;align-items:center}
+  .mbridge{width:100%;height:calc(var(--p) / 2);display:block;border-radius:3px}
   canvas.live-stale{opacity:.8}
   .mono{font-family:var(--mono);font-size:13px}
   .simbar{display:flex;flex-direction:column;gap:10px}
@@ -325,9 +329,9 @@ const LABS = [["#ff5500", "Box 1 图案"], ["#56d1c2", "Box 2 感知"], ["#6d33b
   let h = "";
   LABS.forEach(([c, n], i) => {
     h += `<div class="mbox" id="mb${i + 1}" style="--c:${c}"><b><i></i>${n}</b>
-      <canvas data-box="${i}" data-part="1"></canvas><small>背板 · 有均光膜</small>
-      <canvas data-box="${i}" data-part="0"></canvas><small>底部 · 无均光膜</small></div>`;
-    if (i < 3) h += `<canvas class="mbridge" data-bridge="${i}" title="光桥 ${i + 1}"></canvas>`;
+      <canvas data-box="${i}" data-part="1"></canvas><small>背板 · 均光膜</small>
+      <canvas data-box="${i}" data-part="0"></canvas><small>底部</small></div>`;
+    if (i < 3) h += `<div class="mbcol"><div class="mbslot"><canvas class="mbridge" data-bridge="${i}" title="光桥 ${i + 1}"></canvas></div></div>`;
   });
   $("map").innerHTML = h;
   document.querySelectorAll("#map canvas[data-part]").forEach(c => D2DLive.addPanel(c, +c.dataset.box, +c.dataset.part));
@@ -374,7 +378,7 @@ function paint() {
     : '<div class="muted">没有保存的网络</div>';
   $("fwNow").textContent = d.fw;
   if (d.aud) {
-    $("musicList").innerHTML = LABS.map(([c, n], i) => `<div class="it"><span><b style="color:${c}">●</b> ${n} <span class="muted">${d.aud[i] ? d.aud[i].toFixed(1) + " 秒音乐" : "电子提示音"}</span></span>` +
+    $("musicList").innerHTML = LABS.concat([["#00004d", "完整旅程 Box 1→3"]]).slice(0, d.aud.length).map(([c, n], i) => `<div class="it"><span><b style="color:${c}">●</b> ${n} <span class="muted">${d.aud[i] ? d.aud[i].toFixed(1) + " 秒音乐" : "电子提示音"}</span></span>` +
       (d.aud[i] ? `<button class="g" onclick="send('atest','${i + 1}')">试听</button>` : "") + `</div>`).join("");
   }
   const ip = d.ip && d.ip !== "-" ? d.ip : "192.168.4.1";
