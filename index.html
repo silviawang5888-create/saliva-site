@@ -113,7 +113,9 @@
   .video .pl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
     background:radial-gradient(circle at 25% 30%,rgba(255,85,0,.45),transparent 45%),radial-gradient(circle at 75% 35%,rgba(86,209,194,.45),transparent 45%),radial-gradient(circle at 30% 80%,rgba(109,51,189,.6),transparent 50%),radial-gradient(circle at 80% 80%,rgba(255,0,95,.45),transparent 45%)}
   .video .pl i{width:64px;height:64px;border-radius:50%;background:var(--white);display:grid;place-items:center}
-  .video .pl i::after{content:"";border-left:20px solid var(--navy);border-top:12px solid transparent;border-bottom:12px solid transparent;margin-left:5px}
+  .video .pl i::after{content:"";width:18px;height:18px;border-top:3.5px solid var(--navy);border-right:3.5px solid var(--navy);transform:translate(-2px,2px) rotate(45deg)}
+  .video .pl small{font:500 13px var(--sans);opacity:.85}
+  a.video{text-decoration:none}
   .video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
   /* quick links: stays at the top while scrolling */
   .qnav{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-6px calc(-1 * max(16px,env(safe-area-inset-left))) 0;padding:10px max(16px,env(safe-area-inset-left));background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
@@ -151,7 +153,7 @@
     <h2 data-t="aboutTitle"></h2>
     <p data-t="aboutText"></p>
     <ul class="facts" id="facts"></ul>
-    <button class="video" id="video" type="button"><span class="pl"><i></i><span data-t="linkVideo"></span></span></button>
+    <a class="video" id="video" href="https://discoverytodevice.au" target="_blank" rel="noopener"><span class="pl"><i></i><span data-t="linkOfficial"></span><small>discoverytodevice.au ↗</small></span></a>
     <h3 data-t="logoTitle"></h3>
     <img class="brandmark" src="img/d2d-horizontal.png" width="700" height="272" alt="Discovery to Device">
     <div class="swatches"><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i><i style="background:var(--c4)"></i></div>
@@ -205,11 +207,10 @@ const BROKER = "wss://broker.hivemq.com:8884/mqtt";
 const TOPIC  = "d2d-saliva-p6w58uii9y";
 
 // ===== Links (edit here). labVideo: put a YouTube link per lab when you have one ("" = none) =====
-const VIDEO_ID = "lE4VDgPhDOg";   // from youtube.com/watch?v=lE4VDgPhDOg
 const LINKS = [
+  ["linkOfficial", "https://discoverytodevice.au"],
   ["linkSite",    "https://www.rmit.edu.au/about/schools-colleges/stem-college/research/medtech-hub/facilities"],
   ["linkNews",    "https://www.rmit.edu.au/news/all-news/2026/apr/d2d-facility"],
-  ["linkVideo",   "https://www.youtube.com/watch?v=" + VIDEO_ID],
   ["linkPartner", "https://www.rmit.edu.au/partner/contact-the-industry-engagement-team"],
 ];
 const labVideo = ["", "", "", ""];
@@ -409,13 +410,6 @@ $("soundBtn").addEventListener("click", () => {
 setInterval(() => { soundTick(); soundUi(); }, 250);
 
 // ===== Video: loads only when tapped (nothing from YouTube until then) =====
-// YouTube only plays embedded videos when it can see which website they are on (the "referrer").
-// A page opened straight from the computer (file://) has no website address, so there we open YouTube instead.
-$("video").addEventListener("click", () => {
-  if (location.protocol === "file:") { window.open("https://www.youtube.com/watch?v=" + VIDEO_ID, "_blank", "noopener"); return; }
-  $("video").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&rel=0&playsinline=1&origin=${encodeURIComponent(location.origin)}" title="Discovery to Device" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>`;
-});
-
 // ===== Scale-up illustration: an idea → one prototype (four labs add their part) → copies multiply =====
 const Scale = (() => {
   const cv = $("scaleCv"), ctx = cv.getContext("2d");

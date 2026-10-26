@@ -86,7 +86,7 @@
 <div class="wrap">
 <header>
   <div class="eyebrow" style="display:flex;align-items:center;gap:8px"><img src="img/d2d-icon-64.png" width="22" height="22" alt="" style="border-radius:5px">INSIDE A DROP OF SALIVA · DEVELOPER</div>
-  <h1>开发者控制台</h1>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h1>开发者控制台</h1><button class="g" id="langBtn" type="button" data-no-tr>English</button></div>
   <div class="row">
     <span class="pill"><span class="dot" id="dCloud"></span><span id="tCloud">连接云端…</span></span>
     <span class="pill"><span class="dot" id="dEsp"></span><span id="tEsp">等 ESP32…</span></span>
@@ -137,11 +137,10 @@
     <label>模式<select id="sMode"><option value="0">自动（传感器、按钮、观众网站有效）</option><option value="1">手动（只用控制台）</option><option value="2">一直待机</option></select></label>
     <label class="line">亮度 <input type="range" id="sBri" min="20" max="255"><span id="vBri" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
     <label class="line">总音量（0 最小 · 100 最大） <input type="range" id="sVol" min="0" max="100"><span id="vVol" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
-    <label class="line" hidden>音响 1 <input type="range" id="sS1" min="0" max="100"><span id="vS1"></span></label>
-    <label class="line" hidden>音响 2 <input type="range" id="sS2" min="0" max="100"><span id="vS2"></span></label>
+    <label class="line" style="display:none">音响 1 <input type="range" id="sS1" min="0" max="100"><span id="vS1"></span></label>
+    <label class="line" style="display:none">音响 2 <input type="range" id="sS2" min="0" max="100"><span id="vS2"></span></label>
     <div class="muted">现在只用音响 1（音响 2 的零件坏了，程序里已关掉）。总音量 0 = 2000，100 = 20000。</div>
     <div class="row"><button class="g grow" data-c="spk" data-a="1">试听 音响 1（1.5 秒测试音）</button></div>
-    <div class="muted">两个音响本身大小不一样时：先把大声的那个调低，直到两个听起来一样，再用总音量调整体大小。</div>
     <div class="row">
       <label style="flex:1;min-width:150px">霍尔灵敏度（越小越灵敏）<input type="number" id="sHall" min="50" max="2000" step="10"></label>
       <label style="flex:1;min-width:150px">聚焦锁定秒数<input type="number" id="sLock" min="0" max="60"></label>
@@ -228,6 +227,7 @@
 </div>
 <div id="toast"></div>
 
+<script src="dev-i18n.js"></script>
 <script src="live.js"></script>
 <script src="sim/anim.js" onerror="void 0"></script>
 <script src="sim.js"></script>

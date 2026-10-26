@@ -11,6 +11,7 @@ window.D2D_LANGS = [
 window.D2D_TEXT = {
 // ============================================================ English
 en: {
+  linkOfficial: "Visit the Discovery to Device website",
   soundBtn: "Play the sound on this phone", soundOnTxt: "Sound on this phone · tap to stop",
   soundHint: "Can't hear the speaker, or it's noisy? Play the sound here — it follows the boxes. Headphones help.",
   soundWait: "Sound starts when a lab or the journey plays.", soundPlaying: "Playing in time with the boxes.",
@@ -62,6 +63,7 @@ en: {
 
 // ============================================================ 简体中文
 zh: {
+  linkOfficial: "访问 Discovery to Device 官网",
   soundBtn: "用这部手机播放声音", soundOnTxt: "手机正在出声 · 点一下关掉",
   soundHint: "听不到喇叭，或者现场太吵？在这里播放声音，会跟着盒子同步。戴耳机效果更好。",
   soundWait: "有实验室或完整旅程在播放时，声音就会开始。", soundPlaying: "正在和盒子同步播放。",
@@ -113,6 +115,7 @@ zh: {
 
 // ============================================================ 繁體中文
 "zh-Hant": {
+  linkOfficial: "造訪 Discovery to Device 官網",
   soundBtn: "用這支手機播放聲音", soundOnTxt: "手機正在出聲 · 點一下關掉",
   soundHint: "聽不到喇叭，或現場太吵？在這裡播放聲音，會跟著盒子同步。戴耳機效果更好。",
   soundWait: "有實驗室或完整旅程在播放時，聲音就會開始。", soundPlaying: "正在和盒子同步播放。",
@@ -164,6 +167,7 @@ zh: {
 
 // ============================================================ Tiếng Việt
 vi: {
+  linkOfficial: "Truy cập trang web Discovery to Device",
   soundBtn: "Phát âm thanh trên điện thoại này", soundOnTxt: "Đang phát trên điện thoại · chạm để tắt",
   soundHint: "Không nghe rõ loa hoặc quá ồn? Phát âm thanh ở đây — nó chạy theo các hộp. Nên dùng tai nghe.",
   soundWait: "Âm thanh bắt đầu khi một phòng thí nghiệm hoặc cả hành trình được phát.", soundPlaying: "Đang phát cùng lúc với các hộp.",
@@ -215,6 +219,7 @@ vi: {
 
 // ============================================================ हिन्दी
 hi: {
+  linkOfficial: "Discovery to Device की वेबसाइट देखें",
   soundBtn: "इस फ़ोन पर आवाज़ चलाएँ", soundOnTxt: "फ़ोन पर आवाज़ चल रही है · बंद करने के लिए टैप करें",
   soundHint: "स्पीकर सुनाई नहीं दे रहा या शोर है? यहाँ आवाज़ चलाएँ — यह बॉक्स के साथ चलती है। हेडफ़ोन बेहतर रहेंगे।",
   soundWait: "जब कोई प्रयोगशाला या पूरी यात्रा चलेगी, आवाज़ शुरू होगी।", soundPlaying: "बॉक्स के साथ-साथ चल रही है।",
@@ -266,6 +271,7 @@ hi: {
 
 // ============================================================ Bahasa Indonesia
 id: {
+  linkOfficial: "Kunjungi situs Discovery to Device",
   soundBtn: "Putar suara di ponsel ini", soundOnTxt: "Suara di ponsel menyala · ketuk untuk berhenti",
   soundHint: "Speaker tidak terdengar atau ramai? Putar suaranya di sini — mengikuti kotak. Lebih baik pakai headphone.",
   soundWait: "Suara mulai saat sebuah lab atau seluruh perjalanan diputar.", soundPlaying: "Diputar bersamaan dengan kotak.",
@@ -317,6 +323,7 @@ id: {
 
 // ============================================================ 日本語
 ja: {
+  linkOfficial: "Discovery to Device 公式サイトへ",
   soundBtn: "このスマホで音を再生", soundOnTxt: "スマホで再生中 · タップで停止",
   soundHint: "スピーカーが聞こえない・うるさいときは、ここで音を再生できます。ボックスと同期します。イヤホンがおすすめです。",
   soundWait: "ラボか全行程が再生されると音が始まります。", soundPlaying: "ボックスと同期して再生中です。",
@@ -368,6 +375,7 @@ ja: {
 
 // ============================================================ 한국어
 ko: {
+  linkOfficial: "Discovery to Device 공식 웹사이트",
   soundBtn: "이 휴대폰으로 소리 듣기", soundOnTxt: "휴대폰에서 재생 중 · 눌러서 끄기",
   soundHint: "스피커가 안 들리거나 시끄러우면 여기서 소리를 재생하세요. 상자와 맞춰 재생됩니다. 이어폰을 쓰면 더 좋아요.",
   soundWait: "연구실이나 전체 여정이 재생되면 소리가 시작됩니다.", soundPlaying: "상자와 맞춰 재생 중입니다.",
