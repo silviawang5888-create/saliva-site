@@ -13,7 +13,7 @@
   // sound
   let actx = null, out = null, soundOn = true, volume = 0.7;
   const cueBuffers = {};
-  const JOURNEY = 4, JOURNEY_BOXES = 3;              // like the firmware: track 4 = the whole soundtrack Box 1 → 3
+  const JOURNEY = 4, JOURNEY_BOXES = 4;              // track 4 = the whole soundtrack Box 1 → 4
   const music = [null, null, null, null, null];    // { buf: AudioBuffer, name, sec, from }
   let mSrc = null, mGain = null, mBox = -1, mStartCtx = 0, mStartPos = 0;
   let ui = null;
@@ -36,8 +36,14 @@
           "。检查：电脑是不是连着 ESP32 的热点（没有外网）？网站的 sim 文件夹里有没有 anim.js？");
       }
     }
-    const stubs = new Proxy({}, { get: () => () => 0 });      // the animation code never uses files or a clock
-    const { instance } = await WebAssembly.instantiate(wasm, { wasi_snapshot_preview1: stubs });
+    const stubs = new Proxy({}, { get: () => () => 0 });      // no files or system clock are used
+    const env = {                                              // math used by the real animation source
+      expf: Math.exp, sinf: Math.sin, sqrtf: Math.sqrt, cosf: Math.cos,
+      powf: Math.pow, fmodf: (a, b) => a % b, floorf: Math.floor,
+      fabsf: Math.abs, fminf: Math.min, hypotf: Math.hypot,
+      tanhf: Math.tanh, ceilf: Math.ceil
+    };
+    const { instance } = await WebAssembly.instantiate(wasm, { wasi_snapshot_preview1: stubs, env });
     ex = instance.exports;
     if (ex._initialize) ex._initialize();
     info = meta;
@@ -124,7 +130,7 @@
     return { buf: b, sec, orig: dec.duration };
   };
   const setMusic = async (b, arrayBuffer, name, from) => {
-    const c = await convert(arrayBuffer, b === JOURNEY ? 120 : 60);
+    const c = await convert(arrayBuffer, b === JOURNEY ? 180 : 60);
     music[b] = { buf: c.buf, sec: c.sec, orig: c.orig, name, from };
     ex.setTrack(b, 1, c.sec);
     stopMusic(); refreshMusic();
@@ -237,9 +243,9 @@
     if (!ui) return;
     ui.music.forEach((row, b) => {
       const m = music[b];
-      const cap = b === JOURNEY ? 120 : 60;
+      const cap = b === JOURNEY ? 180 : 60;
       row.state.textContent = b === JOURNEY
-        ? (m ? `${m.name} · ${m.sec.toFixed(1)} 秒 → 导览从 Box 1 开始一直播到底，代替 Box 1–3 和光桥的提示音` : "没有 → Box 1–3 用各自的音乐或电子提示音")
+        ? (m ? `${m.name} · ${m.sec.toFixed(1)} 秒 → 导览从 Box 1 开始一直播到底，代替 Box 1–4 和光桥的提示音` : "没有 → Box 1–4 用各自的音乐或电子提示音")
         : covers(b) ? "由「完整旅程」负责（单独播这个盒子时播它对应的那一段）"
         : m ? `${m.name} · 转换后 ${m.sec.toFixed(1)} 秒${m.orig > cap ? "（原来 " + m.orig.toFixed(0) + " 秒，只保留前 " + cap + " 秒）" : ""}${m.sec < ex.boxS(b) ? " · 比盒子短，后面没声音" : ""} → 这个盒子的电子提示音不播`
         : "没有音乐 → 播放程序里的电子提示音";
@@ -287,7 +293,7 @@
         if (i < 3) h += `<div class="mbcol"><div class="mbslot"><canvas class="mbridge" data-br="${i}" title="光桥 ${i + 1}"></canvas></div></div>`;
       });
       root.querySelector("#simMap").innerHTML = h;
-      root.querySelector("#simMusic").innerHTML = LABS.concat([["#00004d", "完整旅程 Box 1→3"]]).map(([c, n], i) => `
+      root.querySelector("#simMusic").innerHTML = LABS.concat([["#00004d", "完整旅程 Box 1→4"]]).map(([c, n], i) => `
         <div class="it" style="flex-wrap:wrap"><b style="min-width:90px;color:${c === "#56d1c2" ? "#1a8f82" : c}">${n}</b>
           <span class="muted" style="flex:1;min-width:180px" data-ms="${i}"></span>
           <span class="row" style="gap:6px"><label class="g btnlike">选音乐<input type="file" accept="audio/*,.wav,.mp3,.m4a" data-mf="${i}" hidden></label>
