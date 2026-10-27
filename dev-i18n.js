@@ -33,6 +33,14 @@
     // ---- control ----
     "（改了就发送，ESP32 会保存）": "(sent as soon as you change it, the ESP32 saves it)", "设置": "Settings",
     "亮度": "Brightness", "总音量（0 最小 · 100 最大）": "Volume (0 lowest · 100 highest)",
+    "11 块灯板的正式动画亮度": "Animation brightness for 11 panels",
+    "每块板单独设为 0–100%；100% 保留原动画亮度，0% 关闭该板。上方总亮度仍然有效。松开滑块后发送到 ESP32 并保存；单板校准测试不受这里影响。":
+      "Set each panel to 0–100%. At 100% its animation is unchanged; at 0% the panel is off. The master brightness above still applies. Releasing a slider sends and saves the setting on the ESP32. The panel calibration test is unaffected.",
+    "展示当天关闭装置小音响": "Mute the built-in speaker on exhibition day",
+    "等待新版 ESP32 程序连接…": "Waiting for the updated ESP32 firmware…",
+    "新版固件已连接；设置会保存到 ESP32。": "Updated firmware connected; settings are saved on the ESP32.",
+    "ESP32 仍是旧固件：先到“更新程序”安装本次 .bin。": "The ESP32 still has old firmware. Install this release's .bin in Update first.",
+    "底板": "under-light", "后板": "backlight",
     "现在只用音响 1（音响 2 的零件坏了，程序里已关掉）。总音量 0 = 2000，100 = 20000。":
       "Only speaker 1 is in use (speaker 2's part is broken and switched off in the program). Volume 0 = 2000, 100 = 20000.",
     "试听 音响 1（1.5 秒测试音）": "Test speaker 1 (1.5 s test tone)", "音响 1": "Speaker 1", "音响 2": "Speaker 2",
@@ -64,6 +72,7 @@
       " (or on its hotspot Saliva-Control). Open the link below, choose a file → convert and upload; wav / mp3 / m4a all work, the page converts them.",
     "打开音乐上传页面": "Open the music upload page", "秒音乐": " s of music", "电子提示音": "electronic cues", "试听": "Listen",
     "完整旅程 Box 1→3": "Whole journey Box 1→3",
+    "完整旅程音乐": "Whole journey soundtrack",
     // ---- network ----
     "现在的网络": "Current network", "信号": "Signal", "已保存的网络": "Saved networks", "没有保存的网络": "No saved networks",
     "学校登录": "school login", "普通": "normal", "· 正在用": "· in use", "切换": "Switch",

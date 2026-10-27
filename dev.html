@@ -156,7 +156,14 @@
     <h2>设置 <span class="muted" style="font-weight:400">（改了就发送，ESP32 会保存）</span></h2>
     <label>模式<select id="sMode"><option value="0">自动（传感器、按钮、观众网站有效）</option><option value="1">手动（只用控制台）</option><option value="2">一直待机</option></select></label>
     <label class="line">亮度 <input type="range" id="sBri" min="20" max="255"><span id="vBri" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
+    <div class="card" style="padding:12px;background:var(--panel2)">
+      <h2>11 块灯板的正式动画亮度</h2>
+      <div class="muted">每块板单独设为 0–100%；100% 保留原动画亮度，0% 关闭该板。上方总亮度仍然有效。松开滑块后发送到 ESP32 并保存；单板校准测试不受这里影响。</div>
+      <div class="muted" id="panelFeatureNote">等待新版 ESP32 程序连接…</div>
+      <div id="panelBrightness"></div>
+    </div>
     <label class="line">总音量（0 最小 · 100 最大） <input type="range" id="sVol" min="0" max="100"><span id="vVol" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
+    <label class="line" style="justify-content:flex-start"><input type="checkbox" id="sMute"> 展示当天关闭装置小音响</label>
     <label class="line" style="display:none">音响 1 <input type="range" id="sS1" min="0" max="100"><span id="vS1"></span></label>
     <label class="line" style="display:none">音响 2 <input type="range" id="sS2" min="0" max="100"><span id="vS2"></span></label>
     <div class="muted">现在只用音响 1（音响 2 的零件坏了，程序里已关掉）。总音量 0 = 2000，100 = 20000。</div>
@@ -232,7 +239,7 @@
     <dl class="kv"><dt>现在的版本</dt><dd id="fwNow">-</dd></dl>
     <ol class="muted" style="margin:0;padding-left:20px">
       <li>Arduino IDE：Sketch → Export Compiled Binary。</li>
-      <li>把程序文件夹 build 里的 <code>D2D_Saliva_Full.ino.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹（替换旧的），等 GitHub Pages 更新约 1 分钟。</li>
+      <li>把本次的 <code>D2D_Saliva_Relay_11PanelBrightness_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
       <li>点下面的按钮。灯会关 30–90 秒，成功后版本号会变成新的编译时间。</li>
     </ol>
     <label>程序链接（https，以 .bin 结尾）<input id="otaUrl" autocapitalize="off" autocorrect="off"></label>
@@ -247,9 +254,9 @@
 </div>
 <div id="toast"></div>
 
-<script src="dev-i18n.js"></script>
+<script src="dev-i18n.js?v=92794ee7"></script>
 <script src="live.js?v=d9affb1f"></script>
-<script src="sim/anim.js?v=d9affb1f" onerror="void 0"></script>
+<script src="sim/anim.js?v=92794ee7" onerror="void 0"></script>
 <script src="sim.js?v=d9affb1f"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
@@ -312,11 +319,20 @@ async function send(cmd, arg = "") {
 // ---------- controls ----------
 document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => send(b.dataset.c, b.dataset.a || ""));
 const setOne = (k, v) => send("set", k + "=" + v);
+const PANEL_NAMES = ["Box 1 底板", "Box 1 后板", "光桥 1", "Box 2 后板", "Box 2 底板", "光桥 2", "Box 3 后板", "Box 3 底板", "光桥 3", "Box 4 后板", "Box 4 底板"];
+$("panelBrightness").innerHTML = PANEL_NAMES.map((name, i) => `<label class="line">${i + 1} · ${name}<input type="range" id="pb${i + 1}" min="0" max="100" value="100"><span id="pv${i + 1}" style="min-width:48px;text-align:right;font-family:var(--mono)">100%</span></label>`).join("");
+for (let p = 1; p <= 11; p++) {
+  $("pb" + p).disabled = true;
+  $("pb" + p).oninput = e => $("pv" + p).textContent = e.target.value + "%";
+  $("pb" + p).onchange = e => setOne("pb" + p, e.target.value);
+}
+$("sMute").disabled = true;
 $("sMode").onchange = e => setOne("mode", e.target.value);
 $("sBri").oninput = e => $("vBri").textContent = e.target.value;
 $("sBri").onchange = e => setOne("bri", e.target.value);
 $("sVol").oninput = e => $("vVol").textContent = e.target.value;
 $("sVol").onchange = e => setOne("vol", e.target.value);
+$("sMute").onchange = e => setOne("mute", e.target.checked ? 1 : 0);
 for (const k of ["S1", "S2"]) {
   $("s" + k).oninput = e => $("v" + k).textContent = e.target.value;
   $("s" + k).onchange = e => setOne(k.toLowerCase(), e.target.value);
@@ -342,7 +358,7 @@ panelTestLimits();
 $("logRefresh").onclick = () => send("log");
 $("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
 $("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
-if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Full_Box3Video_PanelTest_20261027_2127.bin", location.href).href;
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Relay_11PanelBrightness_20261028.bin", location.href).href;
 else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
 $("otaGo").onclick = () => {
   const u = $("otaUrl").value.trim();
@@ -412,7 +428,7 @@ function paint() {
     : '<div class="muted">没有保存的网络</div>';
   $("fwNow").textContent = d.fw;
   if (d.aud) {
-    $("musicList").innerHTML = LABS.concat([["#00004d", "完整旅程 Box 1→3"]]).slice(0, d.aud.length).map(([c, n], i) => `<div class="it"><span><b style="color:${c}">●</b> ${n} <span class="muted">${d.aud[i] ? d.aud[i].toFixed(1) + " 秒音乐" : "电子提示音"}</span></span>` +
+    $("musicList").innerHTML = LABS.concat([["#00004d", "完整旅程音乐"]]).slice(0, d.aud.length).map(([c, n], i) => `<div class="it"><span><b style="color:${c}">●</b> ${n} <span class="muted">${d.aud[i] ? d.aud[i].toFixed(1) + " 秒音乐" : "电子提示音"}</span></span>` +
       (d.aud[i] ? `<button class="g" onclick="send('atest','${i + 1}')">试听</button>` : "") + `</div>`).join("");
   }
   const ip = d.ip && d.ip !== "-" ? d.ip : "192.168.4.1";
@@ -422,6 +438,14 @@ function paint() {
   if (!cfgFilled && d.cfg) {
     const c = d.cfg;
     $("sMode").value = c.mode; $("sBri").value = c.bri; $("vBri").textContent = c.bri; $("sVol").value = c.vol; $("vVol").textContent = c.vol;
+    const panelReady = Array.isArray(c.pb) && c.pb.length === 11 && typeof c.mute === "boolean";
+    $("panelFeatureNote").textContent = panelReady ? "新版固件已连接；设置会保存到 ESP32。" : "ESP32 仍是旧固件：先到“更新程序”安装本次 .bin。";
+    for (let p = 1; p <= 11; p++) $("pb" + p).disabled = !panelReady;
+    $("sMute").disabled = !panelReady;
+    if (panelReady) {
+      c.pb.forEach((v, i) => { $("pb" + (i + 1)).value = v; $("pv" + (i + 1)).textContent = v + "%"; });
+      $("sMute").checked = c.mute;
+    }
     $("sS1").value = c.s1; $("vS1").textContent = c.s1; $("sS2").value = c.s2; $("vS2").textContent = c.s2;
     $("sHall").value = c.hall; $("sLock").value = c.lock; $("sSlp").value = c.slp ?? 10; $("sRemote").checked = !!c.remote;
     $("sBtns").innerHTML = c.btn.map((v, i) => `<label class="line" style="justify-content:flex-start"><input type="checkbox" ${v ? "checked" : ""} onchange="send('set','b${i + 1}='+(this.checked?1:0))"> 按钮 ${i + 1}</label>`).join("");
