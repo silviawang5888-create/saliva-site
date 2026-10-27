@@ -4,7 +4,7 @@
 
 请按下列路径覆盖 GitHub 仓库中的同名文件：
 
-1. `firmware/D2D_Saliva_Full.ino.bin`：ESP32 无线更新使用。
+1. `firmware/D2D_Saliva_Full_Physical_v2_20261027_204023.bin`：ESP32 无线更新使用。它使用唯一文件名，避免 GitHub Pages 返回旧缓存。
 2. `sim.js`：控制台模拟器加载与播放逻辑。
 3. `sim/anim.js`：网页离线加载的动画程序；控制台通常优先读取它。
 4. `sim/anim.wasm`：编译后的动画程序。
@@ -12,6 +12,12 @@
 6. `dev.html`：已加入版本号 `3422f036`，避免浏览器继续使用缓存的旧动画。
 
 上传后等待 GitHub Pages 完成部署，再强制刷新控制台：Mac 使用 `Command + Shift + R`。
+
+无线更新时填写这个新链接：
+
+`https://silviawang5888-create.github.io/saliva-site/firmware/D2D_Saliva_Full_Physical_v2_20261027_204023.bin`
+
+不要继续使用旧的 `D2D_Saliva_Full.ino.bin` 链接。
 
 控制台动画版本应显示：`3422f036`，总时间应为 `137` 秒，四个 Box 均为 `28` 秒。
 
