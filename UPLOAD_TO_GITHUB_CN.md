@@ -5,11 +5,12 @@
 请按下列路径覆盖 GitHub 仓库中的同名文件：
 
 1. `firmware/D2D_Saliva_Full_Physical_v2_20261027_204023.bin`：ESP32 无线更新使用。它使用唯一文件名，避免 GitHub Pages 返回旧缓存。
-2. `sim.js`：控制台模拟器加载与播放逻辑。
-3. `sim/anim.js`：网页离线加载的动画程序；控制台通常优先读取它。
-4. `sim/anim.wasm`：编译后的动画程序。
-5. `sim/anim.json`：动画版本资料。
-6. `dev.html`：已加入版本号 `3422f036`，避免浏览器继续使用缓存的旧动画。
+2. `live.js`：绘制实体实时画面和模拟器画面；缺少它时页面会没有反应。
+3. `sim.js`：控制台模拟器加载与播放逻辑。
+4. `sim/anim.js`：网页离线加载的动画程序；控制台通常优先读取它。
+5. `sim/anim.wasm`：编译后的动画程序。
+6. `sim/anim.json`：动画版本资料。
+7. `dev.html`：已加入版本号 `3422f036`，避免浏览器继续使用缓存的旧动画。
 
 上传后等待 GitHub Pages 完成部署，再强制刷新控制台：Mac 使用 `Command + Shift + R`。
 
