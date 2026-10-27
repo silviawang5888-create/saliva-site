@@ -133,6 +133,26 @@
     <div class="muted">这里的 Box 按钮是开发者用的，不受冷却和锁定限制。</div>
   </div>
   <div class="card">
+    <h2>单块灯板校准测试</h2>
+    <div class="muted">只点亮你选择的一块板。可以点亮整块、指定横排或指定竖排；离开测试时点“关闭测试”。亮度只在这次测试中使用，不会改动正式动画设置。</div>
+    <label>灯板<select id="pPanel">
+      <option value="1">1 · Box 1 底板 16×16</option><option value="2">2 · Box 1 后板 16×16</option>
+      <option value="3">3 · 光桥 1 8×32</option><option value="4">4 · Box 2 后板 16×16</option>
+      <option value="5">5 · Box 2 底板 16×16</option><option value="6">6 · 光桥 2 8×32</option>
+      <option value="7">7 · Box 3 后板 16×16</option><option value="8">8 · Box 3 底板 16×16</option>
+      <option value="9">9 · 光桥 3 8×32</option><option value="10">10 · Box 4 后板 16×16</option>
+      <option value="11">11 · Box 4 底板 16×16</option>
+    </select></label>
+    <div class="row">
+      <label style="flex:1">范围<select id="pAxis"><option value="0">整块板</option><option value="1">一条横排</option><option value="2">一条竖排</option></select></label>
+      <label style="flex:1">第几条（从 1 开始）<input id="pLine" type="number" value="1" min="1" max="16"></label>
+      <label style="flex:1">颜色<select id="pColor"><option value="0">白</option><option value="1">红</option><option value="2">绿</option><option value="3">蓝</option><option value="4">橙</option><option value="5">青</option><option value="6">紫</option><option value="7">粉</option></select></label>
+    </div>
+    <label class="line">这块板的测试亮度 <input type="range" id="pBri" min="1" max="255" value="128"><span id="pBriV" style="min-width:70px;text-align:right;font-family:var(--mono)">128 · 50%</span></label>
+    <div class="row"><button class="grow" id="pApply">开始 / 更新测试</button><button class="grow r" id="pOff">关闭测试</button></div>
+    <div class="muted">16×16：横排/竖排为 1–16。8×32 光桥：横排 1–8，竖排 1–32。</div>
+  </div>
+  <div class="card">
     <h2>设置 <span class="muted" style="font-weight:400">（改了就发送，ESP32 会保存）</span></h2>
     <label>模式<select id="sMode"><option value="0">自动（传感器、按钮、观众网站有效）</option><option value="1">手动（只用控制台）</option><option value="2">一直待机</option></select></label>
     <label class="line">亮度 <input type="range" id="sBri" min="20" max="255"><span id="vBri" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
@@ -228,9 +248,9 @@
 <div id="toast"></div>
 
 <script src="dev-i18n.js"></script>
-<script src="live.js?v=3422f036"></script>
-<script src="sim/anim.js?v=3422f036" onerror="void 0"></script>
-<script src="sim.js?v=3422f036"></script>
+<script src="live.js?v=d9affb1f"></script>
+<script src="sim/anim.js?v=d9affb1f" onerror="void 0"></script>
+<script src="sim.js?v=d9affb1f"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
 const loadMqtt = () => new Promise(res => {
@@ -305,10 +325,24 @@ $("sHall").onchange = e => setOne("hall", e.target.value);
 $("sLock").onchange = e => setOne("lock", e.target.value);
 $("sSlp").onchange = e => setOne("slp", e.target.value);
 $("sRemote").onchange = e => setOne("remote", e.target.checked ? 1 : 0);
+const panelTestLimits = () => {
+  const bridge = [3, 6, 9].includes(+$('pPanel').value), axis = +$('pAxis').value;
+  const max = bridge ? (axis === 2 ? 32 : 8) : 16;
+  $('pLine').max = max; if (+$('pLine').value > max) $('pLine').value = max;
+  $('pLine').disabled = axis === 0;
+};
+$('pPanel').onchange = panelTestLimits; $('pAxis').onchange = panelTestLimits;
+$('pBri').oninput = e => $('pBriV').textContent = e.target.value + ' · ' + Math.round(e.target.value / 255 * 100) + '%';
+$('pApply').onclick = () => {
+  panelTestLimits();
+  send('ptest', [$('pPanel').value, $('pAxis').value, $('pLine').value, $('pBri').value, $('pColor').value].join(','));
+};
+$('pOff').onclick = () => send('ptest', '0,0,1,0,0');
+panelTestLimits();
 $("logRefresh").onclick = () => send("log");
 $("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
 $("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
-if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Full.ino.bin", location.href).href;
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Full_Box3Video_PanelTest_20261027_2127.bin", location.href).href;
 else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
 $("otaGo").onclick = () => {
   const u = $("otaUrl").value.trim();
