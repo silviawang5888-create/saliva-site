@@ -53,9 +53,31 @@
     "这里的 Box 按钮是开发者用的，不受冷却和锁定限制。": "These Box buttons are for developers and ignore the cooldown and lock.",
     "完整导览": "Whole tour", "停止 / 待机": "Stop / idle", "测试图案": "Test pattern", "现在省电待机": "Standby now", "唤醒": "Wake up",
     "单块灯板校准测试": "Individual LED panel calibration",
-    "只点亮你选择的一块板。可以点亮整块、指定横排或指定竖排；离开测试时点“关闭测试”。亮度只在这次测试中使用，不会改动正式动画设置。":
-      "Lights only the selected panel. Choose the whole panel, one horizontal row, or one vertical column; press “Stop test” when finished. This brightness is temporary and does not change the animation settings.",
-    "灯板": "Panel", "范围": "Area", "整块板": "Whole panel", "一条横排": "One horizontal row", "一条竖排": "One vertical column",
+    "保存校准记录": "Save calibration record", "复制校准资料": "Copy calibration data", "下载校准文件": "Download calibration file",
+    "选择旧校准文件": "Choose an earlier calibration file", "将文件里的设置恢复到 ESP32": "Restore these settings to the ESP32",
+    "ESP32 会记住方向和亮度。调整完成后，下载这份不含密钥的校准文件；下次动画师换代码时把文件和新动画一起发给我。换 ESP32 或清空设备后，也能从文件恢复 11 块板的设置。":
+      "The ESP32 remembers orientation and brightness. After calibration, download this file without keys and send it with any new animation code. You can also restore all 11 panels after replacing or resetting the ESP32.",
+    "等待 ESP32 回报设置…": "Waiting for the ESP32 settings…", "需要 ESP32 安装含方向校准的新固件。": "The ESP32 needs the orientation-calibration firmware.",
+    "已收到 ESP32 当前设置；导出前请等刚才的修改回报到这里。": "Current ESP32 settings received; wait for recent changes to appear before exporting.",
+    "这是 ESP32 上次回报的设置，设备目前未确认在线。": "These are the last reported settings; the ESP32 is not confirmed online.",
+    "校准资料已复制，可以直接发给我": "Calibration data copied; send it with the new animation code.",
+    "复制失败，请用“下载校准文件”": "Copy failed; use Download calibration file.",
+    "ESP32 尚未回报新版校准设置": "The ESP32 has not reported its calibration settings.",
+    "先连接已更新的 ESP32": "Connect the updated ESP32 first.",
+    "已发送 11 块板的校准设置；请看实体板核对": "Calibration sent for 11 panels; check the physical panels.",
+    "只点亮你选择的一块板。可以显示方向标记、整块、指定横排或竖排；离开测试时点“关闭测试”。测试亮度不会改动正式动画亮度。":
+      "Lights only the selected panel. Show direction markers, the whole panel, one row or one column; press “Stop test” when finished. Test brightness does not change animation brightness.",
+    "灯板": "Panel", "范围": "Area", "方向标记": "Direction markers", "整块板": "Whole panel", "一条横排": "One horizontal row", "一条竖排": "One vertical column",
+    "这块灯板的方向": "This panel's orientation", "旋转": "Rotation", "镜像": "Mirror",
+    "0° · 保持原方向": "0° · original orientation", "顺时针 90°": "90° clockwise", "180°": "180°", "顺时针 270°": "270° clockwise",
+    "不镜像": "No mirror", "左右镜像": "Mirror left–right", "恢复这块板的原始方向": "Restore this panel's original orientation",
+    "调整后自动保存；请看实体灯板确认方向。": "Changes save automatically; check the physical panel.",
+    "需要安装含方向校准功能的新固件。": "Install the new firmware with orientation calibration.",
+    "先点“开始 / 更新测试”，直接看实体板。选旋转或左右镜像后立即作用于测试图案和正式动画，并保存在 ESP32。光桥只支持 0° 或 180°。":
+      "Start the test and check the physical panel. Rotation and mirror changes apply to both the test and animations, and are saved on the ESP32. Bridges support only 0° or 180°.",
+    "背板：面对盒子正面，红色在左上、绿色在右上、蓝色在左下、白色在右下。": "Backlight: facing the box, red top-left, green top-right, blue bottom-left, white bottom-right.",
+    "底板：从上方看盒子，红色在远侧左边、绿色在远侧右边、蓝色在近侧左边、白色在近侧右边。": "Under-light: looking down, red far-left, green far-right, blue near-left, white near-right.",
+    "光桥：红色靠前一个盒子、上侧；绿色靠后一个盒子、上侧；蓝色靠前一个盒子、下侧；白色靠后一个盒子、下侧。": "Bridge: red at the previous box/top, green at the next box/top, blue at the previous box/bottom, white at the next box/bottom.",
     "第几条（从 1 开始）": "Line number (starting at 1)", "颜色": "Colour", "白": "White", "红": "Red", "绿": "Green", "蓝": "Blue", "橙": "Orange", "青": "Teal", "紫": "Purple", "粉": "Pink",
     "这块板的测试亮度": "Test brightness for this panel", "开始 / 更新测试": "Start / update test", "关闭测试": "Stop test",
     "16×16：横排/竖排为 1–16。8×32 光桥：横排 1–8，竖排 1–32。": "16×16: rows/columns 1–16. 8×32 bridge: rows 1–8, columns 1–32.",
@@ -66,6 +88,10 @@
     // ---- music ----
     "每个实验室的音乐": "Music for each lab", "有音乐的实验室，播放时用这段音乐（从头开始，盒子结束时淡出），不再播电子提示音。“试听”只在喇叭上放 15 秒，不动灯。":
       "A lab with music plays it (from the start, fading out when the box ends) instead of the electronic cues. “Listen” plays 15 s on the speaker only, the LEDs don't change.",
+    "ESP32 实体音频（上传与试听）": "ESP32 device audio (upload and test)",
+    "上方“选音乐／试听”只在这台电脑播放，不会改装置。这里查看装置里真正存了哪些音频；要更换文件，电脑需和 ESP32 在同一个 Wi-Fi，或连接 Saliva-Control 热点。":
+      "Choose music and Listen above only play on this computer. Here you can see which audio files are stored on the ESP32. To replace one, connect the computer to the same Wi-Fi or the Saliva-Control hotspot.",
+    "打开 ESP32 音频上传页面": "Open ESP32 audio upload page", "设备试听 15 秒": "Test on device for 15 s",
     "上传 / 更换音乐": "Upload / replace music",
     "音频文件比较大，要直接传给 ESP32，所以电脑要和 ESP32 在": "Audio files are large and go straight to the ESP32, so the computer must be on",
     "同一个 Wi-Fi": "the same Wi-Fi", "（或者连上它的热点 Saliva-Control）。打开下面的链接，选文件 → 转换并上传，wav / mp3 / m4a 都可以，网页会自动转格式。":

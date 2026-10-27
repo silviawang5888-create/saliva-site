@@ -1,8 +1,7 @@
-/* Inside a Drop of Saliva — offline simulator for the developer console.
-   sim/anim.wasm is built from the real firmware file by tools/build_sim.py: the animation code, panel tables,
-   sound cue tables and tour timing are the same code the ESP32 runs, so what you see here is what the boxes show.
-   Sound: the synth cues are rendered sample by sample like the ESP32 does (22050 Hz); lab music is converted
-   exactly like the ESP32's /audio upload page does (22050 Hz mono, loudest point 0.95, 0.5 s fade, max 60 s). */
+/* Inside a Drop of Saliva — developer simulator.
+   sim/anim.wasm uses the animation headers from the ESP32 project and a browser wrapper for panel mapping
+   and tour timing. The full soundtrack comes from audio/journey.mp3 (or the embedded local preview copy).
+   The preview is for checking sequence and timing; final LED orientation and brightness need physical testing. */
 (function () {
   const SR = 22050, FRAME_MS = 100;
   const CUE_TICK = 0, CUE_CLICK = 9;                         // cueLevel() in the firmware: tick 0.5, click 0.8, rest 1
@@ -15,8 +14,28 @@
   const cueBuffers = {};
   const JOURNEY = 4, JOURNEY_BOXES = 4;              // track 4 = the whole soundtrack Box 1 → 4
   const music = [null, null, null, null, null];    // { buf: AudioBuffer, name, sec, from }
+  let journeyLoadError = null;
   let mSrc = null, mGain = null, mBox = -1, mStartCtx = 0, mStartPos = 0;
   let ui = null;
+
+  // Browsers block fetch(file://...) for a page opened directly from a ZIP extraction.
+  // The small local-preview loader is only used in that case; hosted pages fetch the MP3.
+  const loadLocalJourney = (base) => new Promise((resolve, reject) => {
+    const decode = () => {
+      try {
+        const raw = atob(window.D2D_JOURNEY_B64);
+        const bytes = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+        resolve(bytes.buffer);
+      } catch (e) { reject(e); }
+    };
+    if (window.D2D_JOURNEY_B64) return decode();
+    const script = document.createElement("script");
+    script.src = base + "audio/journey-inline.js";
+    script.onload = decode;
+    script.onerror = () => reject(new Error("找不到本地预览音乐 audio/journey-inline.js"));
+    document.head.appendChild(script);
+  });
 
   // ---------- load the compiled firmware animations ----------
   const load = (base) => ready || (ready = (async () => {
@@ -47,12 +66,16 @@
     ex = instance.exports;
     if (ex._initialize) ex._initialize();
     info = meta;
-    for (let b = 0; b <= JOURNEY; b++) {                      // sound that ships with the website: audio/box1.wav … audio/journey.wav
-      const f = b === JOURNEY ? "journey.wav" : "box" + (b + 1) + ".wav";
+    for (let b = 0; b <= JOURNEY; b++) {                      // sound that ships with the website: audio/box1.wav … audio/journey.mp3
+      const f = b === JOURNEY ? "journey.mp3" : "box" + (b + 1) + ".wav";
       try {
-        const r = await fetch(base + "audio/" + f);
-        if (r.ok) await setMusic(b, await r.arrayBuffer(), "网站上的 audio/" + f, "site");
-      } catch (e) {}
+        if (b === JOURNEY && window.location.protocol === "file:") {
+          await setMusic(b, await loadLocalJourney(base), "本地包里的 audio/" + f, "site");
+        } else {
+          const r = await fetch(base + "audio/" + f + (b === JOURNEY ? "?v=20261028-full135" : ""));
+          if (r.ok) await setMusic(b, await r.arrayBuffer(), "网站上的 audio/" + f, "site");
+        }
+      } catch (e) { if (b === JOURNEY) journeyLoadError = e.message || String(e); }
     }
     return ex;
   })());
@@ -130,8 +153,9 @@
     return { buf: b, sec, orig: dec.duration };
   };
   const setMusic = async (b, arrayBuffer, name, from) => {
-    const c = await convert(arrayBuffer, b === JOURNEY ? 180 : 60);
+    const c = await convert(arrayBuffer, b === JOURNEY ? 135 : 60);
     music[b] = { buf: c.buf, sec: c.sec, orig: c.orig, name, from };
+    if (b === JOURNEY) journeyLoadError = null;
     ex.setTrack(b, 1, c.sec);
     stopMusic(); refreshMusic();
   };
@@ -243,9 +267,9 @@
     if (!ui) return;
     ui.music.forEach((row, b) => {
       const m = music[b];
-      const cap = b === JOURNEY ? 180 : 60;
+      const cap = b === JOURNEY ? 135 : 60;
       row.state.textContent = b === JOURNEY
-        ? (m ? `${m.name} · ${m.sec.toFixed(1)} 秒 → 导览从 Box 1 开始一直播到底，代替 Box 1–4 和光桥的提示音` : "没有 → Box 1–4 用各自的音乐或电子提示音")
+        ? (m ? `${m.name} · ${m.sec.toFixed(1)} 秒 → 导览从 Box 1 开始一直播到底，代替 Box 1–4 和光桥的提示音` : journeyLoadError ? `完整旅程音乐加载失败：${journeyLoadError}` : "没有 → Box 1–4 用各自的音乐或电子提示音")
         : covers(b) ? "由「完整旅程」负责（单独播这个盒子时播它对应的那一段）"
         : m ? `${m.name} · 转换后 ${m.sec.toFixed(1)} 秒${m.orig > cap ? "（原来 " + m.orig.toFixed(0) + " 秒，只保留前 " + cap + " 秒）" : ""}${m.sec < ex.boxS(b) ? " · 比盒子短，后面没声音" : ""} → 这个盒子的电子提示音不播`
         : "没有音乐 → 播放程序里的电子提示音";

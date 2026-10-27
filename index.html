@@ -371,7 +371,7 @@ const connect = () => {
 // ===== Sound on the visitor's phone (backup for the one speaker / a noisy room) =====
 // The ESP32 sends which sound file plays (at), from where (ap, s), where that part ends (ae) and the exact clock
 // time it measured this (ms). The phone plays the same file at the same place and keeps correcting itself.
-const SOUND_FILES = { 4: "audio/journey.mp3" };          // track 4 = Chan's soundtrack Box 1 → 4
+const SOUND_FILES = { 4: "audio/journey.mp3?v=20261028-full135" };          // track 4 = Chan's soundtrack Box 1 → 4
 let soundOn = false, sAudio = null, sRef = null;
 const SOUND_SEEK_GAP = 1.5;  // only jump when genuinely out of sync; frequent seeks sound like dropouts
 const soundPos = () => {

@@ -30,6 +30,7 @@
   .dot.ok{background:var(--b2)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .card{background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+  details.card>summary{cursor:pointer;list-style:revert}
   .card h2{font-size:15px;margin:0}
   nav{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}
   nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:10px 12px;font-size:15px;cursor:pointer;white-space:nowrap;border-radius:0}
@@ -101,10 +102,9 @@
 <nav id="nav">
   <button data-t="ov" class="on">总览</button>
   <button data-t="ctl">控制</button>
-  <button data-t="music">音乐</button>
   <button data-t="net">网络</button>
   <button data-t="sim">模拟器</button>
-  <button data-t="log">日志</button>
+  <button data-t="logs">日志</button>
   <button data-t="upd">更新程序</button>
 </nav>
 
@@ -134,7 +134,7 @@
   </div>
   <div class="card">
     <h2>单块灯板校准测试</h2>
-    <div class="muted">只点亮你选择的一块板。可以点亮整块、指定横排或指定竖排；离开测试时点“关闭测试”。亮度只在这次测试中使用，不会改动正式动画设置。</div>
+    <div class="muted">只点亮你选择的一块板。可以显示方向标记、整块、指定横排或竖排；离开测试时点“关闭测试”。测试亮度不会改动正式动画亮度。</div>
     <label>灯板<select id="pPanel">
       <option value="1">1 · Box 1 底板 16×16</option><option value="2">2 · Box 1 后板 16×16</option>
       <option value="3">3 · 光桥 1 8×32</option><option value="4">4 · Box 2 后板 16×16</option>
@@ -144,13 +144,30 @@
       <option value="11">11 · Box 4 底板 16×16</option>
     </select></label>
     <div class="row">
-      <label style="flex:1">范围<select id="pAxis"><option value="0">整块板</option><option value="1">一条横排</option><option value="2">一条竖排</option></select></label>
+      <label style="flex:1">范围<select id="pAxis"><option value="3">方向标记</option><option value="0">整块板</option><option value="1">一条横排</option><option value="2">一条竖排</option></select></label>
       <label style="flex:1">第几条（从 1 开始）<input id="pLine" type="number" value="1" min="1" max="16"></label>
       <label style="flex:1">颜色<select id="pColor"><option value="0">白</option><option value="1">红</option><option value="2">绿</option><option value="3">蓝</option><option value="4">橙</option><option value="5">青</option><option value="6">紫</option><option value="7">粉</option></select></label>
     </div>
     <label class="line">这块板的测试亮度 <input type="range" id="pBri" min="1" max="255" value="128"><span id="pBriV" style="min-width:70px;text-align:right;font-family:var(--mono)">128 · 50%</span></label>
     <div class="row"><button class="grow" id="pApply">开始 / 更新测试</button><button class="grow r" id="pOff">关闭测试</button></div>
+    <div class="card" style="padding:12px;background:var(--panel2)">
+      <h2>这块灯板的方向</h2>
+      <div class="muted">先点“开始 / 更新测试”，直接看实体板。选旋转或左右镜像后立即作用于测试图案和正式动画，并保存在 ESP32。光桥只支持 0° 或 180°。</div>
+      <div class="muted" id="pOrientGuide"></div>
+      <div class="row"><label style="flex:1">旋转<select id="pRot"><option value="0">0° · 保持原方向</option><option value="1">顺时针 90°</option><option value="2">180°</option><option value="3">顺时针 270°</option></select></label>
+      <label style="flex:1">镜像<select id="pMirror"><option value="0">不镜像</option><option value="1">左右镜像</option></select></label></div>
+      <div class="row"><button class="g" id="pReset">恢复这块板的原始方向</button><span class="muted" id="pOrientNote">等待新版 ESP32 程序连接…</span></div>
+    </div>
     <div class="muted">16×16：横排/竖排为 1–16。8×32 光桥：横排 1–8，竖排 1–32。</div>
+  </div>
+  <div class="card">
+    <h2>保存校准记录</h2>
+    <div class="muted">ESP32 会记住方向和亮度。调整完成后，下载这份不含密钥的校准文件；下次动画师换代码时把文件和新动画一起发给我。换 ESP32 或清空设备后，也能从文件恢复 11 块板的设置。</div>
+    <div class="row"><button id="calCopy" class="g">复制校准资料</button><button id="calDownload" class="g">下载校准文件</button>
+      <label class="btnlike">选择旧校准文件<input id="calFile" type="file" accept=".json,application/json" hidden></label></div>
+    <div class="muted" id="calState">等待 ESP32 回报设置…</div>
+    <div class="muted" id="calPreview"></div>
+    <button id="calApply" disabled>将文件里的设置恢复到 ESP32</button>
   </div>
   <div class="card">
     <h2>设置 <span class="muted" style="font-weight:400">（改了就发送，ESP32 会保存）</span></h2>
@@ -175,19 +192,6 @@
     </div>
     <div class="row" id="sBtns"></div>
     <label class="line" style="justify-content:flex-start"><input type="checkbox" id="sRemote"> 观众网站可以点播</label>
-  </div>
-</section>
-
-<section class="tab" id="music">
-  <div class="card">
-    <h2>每个实验室的音乐</h2>
-    <div id="musicList" class="muted">还没收到</div>
-    <div class="muted">有音乐的实验室，播放时用这段音乐（从头开始，盒子结束时淡出），不再播电子提示音。“试听”只在喇叭上放 15 秒，不动灯。</div>
-  </div>
-  <div class="card">
-    <h2>上传 / 更换音乐</h2>
-    <div class="muted">音频文件比较大，要直接传给 ESP32，所以电脑要和 ESP32 在<b>同一个 Wi-Fi</b>（或者连上它的热点 Saliva-Control）。打开下面的链接，选文件 → 转换并上传，wav / mp3 / m4a 都可以，网页会自动转格式。</div>
-    <div class="row"><a id="audioLink" href="#" target="_blank"><button>打开音乐上传页面</button></a><span class="muted" id="audioIp"></span></div>
   </div>
 </section>
 
@@ -219,13 +223,19 @@
 <section class="tab" id="sim">
   <div class="card">
     <h2>模拟器 <span class="muted" style="font-weight:400">不用连 ESP32</span></h2>
-    <div class="muted">用的是程序文件里同一份动画代码（编译成网页能跑的版本），每秒 10 帧，和装置一样。现场离线、或者上传新程序前，都可以在这里先看动画、听声音。<br><span id="simSrc">—</span></div>
+    <div class="muted">动画模块与当前 ESP32 程序同源，每秒模拟 10 帧。四块背板均按观众从盒子正面看到的方向显示：左上角是 (0,0)，右边是 X 增大，下边是 Y 增大。ESP32 程序里给实体背板做的接线及安装方向补偿不会再在网页上旋转一次。点「播放」后会播放完整旅程音乐。<br><span id="simSrc">—</span></div>
     <div id="simRoot"></div>
-    <div class="warnbox">改了程序里的动画以后，要重新生成 <code>sim/anim.wasm</code>（运行 <code>tools/build_sim.py</code>，或者把新的 .ino 发给 Claude），这里才会变成新的。上面的「编号」和程序文件对得上，就说明模拟器是最新的。电脑音箱和现场喇叭的音量不同，这里只用来听内容和时间点。</div>
+    <div class="warnbox">更新 ESP32 动画程序时，也要同步更新网站的 <code>sim/anim.js</code>、<code>sim/anim.wasm</code> 和 <code>sim/anim.json</code>。上方显示这次生成的程序文件和编号。电脑与现场音响的音量可能不同。</div>
   </div>
+  <details class="card">
+    <summary><b>ESP32 实体音频（上传与试听）</b></summary>
+    <div class="muted">上方“选音乐／试听”只在这台电脑播放，不会改装置。这里查看装置里真正存了哪些音频；要更换文件，电脑需和 ESP32 在同一个 Wi-Fi，或连接 Saliva-Control 热点。</div>
+    <div id="musicList" class="muted">还没收到</div>
+    <div class="row"><a id="audioLink" href="#" target="_blank"><button>打开 ESP32 音频上传页面</button></a><span class="muted" id="audioIp"></span></div>
+  </details>
 </section>
 
-<section class="tab" id="log">
+<section class="tab" id="logs">
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2>日志（最近 40 条，时间是开机后的时:分:秒）</h2>
       <div class="row"><button class="g" id="logRefresh">刷新</button><button class="g" id="logCopy">复制</button></div></div>
@@ -239,7 +249,7 @@
     <dl class="kv"><dt>现在的版本</dt><dd id="fwNow">-</dd></dl>
     <ol class="muted" style="margin:0;padding-left:20px">
       <li>Arduino IDE：Sketch → Export Compiled Binary。</li>
-      <li>把本次的 <code>D2D_Saliva_Relay_11PanelBrightness_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
+      <li>把本次的 <code>D2D_Saliva_Relay_11PanelOrientation_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
       <li>点下面的按钮。灯会关 30–90 秒，成功后版本号会变成新的编译时间。</li>
     </ol>
     <label>程序链接（https，以 .bin 结尾）<input id="otaUrl" autocapitalize="off" autocorrect="off"></label>
@@ -254,10 +264,10 @@
 </div>
 <div id="toast"></div>
 
-<script src="dev-i18n.js?v=92794ee7"></script>
+<script src="dev-i18n.js?v=67a26c09"></script>
 <script src="live.js?v=d9affb1f"></script>
-<script src="sim/anim.js?v=92794ee7" onerror="void 0"></script>
-<script src="sim.js?v=d9affb1f"></script>
+<script src="sim/anim.js?v=46861cc6" onerror="void 0"></script>
+<script src="sim.js?v=20261028-bridge-audio-fix"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
 const loadMqtt = () => new Promise(res => {
@@ -314,12 +324,68 @@ async function send(cmd, arg = "") {
   pending[n] = cmd;
   client.publish(TOPIC + "/dev/cmd", body + "|" + sig);
   setTimeout(() => { if (pending[n]) { delete pending[n]; toast("ESP32 没回应（离线，或者正在忙）", false); } }, 8000);
+  return true;
 }
 
 // ---------- controls ----------
 document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => send(b.dataset.c, b.dataset.a || ""));
 const setOne = (k, v) => send("set", k + "=" + v);
 const PANEL_NAMES = ["Box 1 底板", "Box 1 后板", "光桥 1", "Box 2 后板", "Box 2 底板", "光桥 2", "Box 3 后板", "Box 3 底板", "光桥 3", "Box 4 后板", "Box 4 底板"];
+$('pAxis').value = '0';
+$('pAxis').querySelector('option[value="3"]').disabled = true;
+let orientationReady = false, orientationRot = Array(11).fill(0), orientationMirror = Array(11).fill(0);
+let pendingCalibration = null;
+const isBridgeIndex = p => p === 2 || p === 5 || p === 8;
+const calibrationFromStatus = () => {
+  const c = dev && dev.cfg;
+  if (!c || ![c.pr,c.pm,c.pb].every(a => Array.isArray(a) && a.length === 11)) return null;
+  return {
+    schema: 'd2d-panel-calibration-v1',
+    exportedAt: new Date().toISOString(), firmware: dev.fw || '',
+    animationSource: window.D2D_ANIM?.info?.source || '',
+    note: 'Rotation and mirror are additional corrections after the 28 Oct wiring defaults. No developer key or Wi-Fi password is included.',
+    coordinateConvention: {backlight:'front view: x right, y down', underLight:'top view: x right, y from far side to visitor', bridge:'x from previous box to next box, y top to bottom'},
+    masterBrightnessForReference: c.bri,
+    panels: PANEL_NAMES.map((name, i) => ({panel: i + 1, name, size: isBridgeIndex(i) ? '32x8' : '16x16', rotationQuarterTurns: c.pr[i], mirrorX: !!c.pm[i], brightnessPercent: c.pb[i]}))
+  };
+};
+const calibrationText = () => { const data = calibrationFromStatus(); if (!data) { toast('ESP32 尚未回报新版校准设置', false); return null; } return JSON.stringify(data, null, 2) + '\n'; };
+$('calCopy').disabled = $('calDownload').disabled = true;
+$('calCopy').onclick = async () => { const s = calibrationText(); if (!s) return; try { await navigator.clipboard.writeText(s); toast('校准资料已复制，可以直接发给我', true); } catch (e) { toast('复制失败，请用“下载校准文件”', false); } };
+$('calDownload').onclick = () => { const s = calibrationText(); if (!s) return; const url = URL.createObjectURL(new Blob([s], {type:'application/json'})); const a = document.createElement('a'); a.href = url; a.download = 'D2D_11板方向亮度校准_' + new Date().toISOString().slice(0,10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+const validateCalibration = data => {
+  if (!data || data.schema !== 'd2d-panel-calibration-v1' || !Array.isArray(data.panels) || data.panels.length !== 11) throw Error('这不是 11 块灯板的校准文件');
+  return data.panels.map((p, i) => {
+    const r = p.rotationQuarterTurns, b = p.brightnessPercent, m = p.mirrorX;
+    if (p.panel !== i + 1 || !Number.isInteger(r) || r < 0 || r > 3 || (isBridgeIndex(i) && r !== 0 && r !== 2) || (m !== true && m !== false) || !Number.isInteger(b) || b < 0 || b > 100) throw Error('第 ' + (i + 1) + ' 块板的数据不对');
+    return {panel:i+1, rotationQuarterTurns:r, mirrorX:m, brightnessPercent:b};
+  });
+};
+$('calFile').onchange = async e => {
+  pendingCalibration = null; $('calApply').disabled = true; $('calPreview').textContent = '';
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    if (f.size > 100000) throw Error('文件太大');
+    const data = JSON.parse(await f.text()); pendingCalibration = validateCalibration(data);
+    $('calPreview').textContent = '已读取 ' + f.name + '：11 块板的方向和亮度。点击下面按钮才会写入 ESP32；总亮度、音乐和网络不会改变。';
+    $('calApply').disabled = !(orientationReady && devAt && Date.now() - devAt < 25000);
+  } catch (err) { $('calPreview').textContent = '无法读取：' + err.message; }
+  e.target.value = '';
+};
+$('calApply').onclick = async () => {
+  if (!pendingCalibration || !orientationReady || !devAt || Date.now() - devAt >= 25000) { toast('先连接已更新的 ESP32', false); return; }
+  const arg = pendingCalibration.map(p => 'pr' + p.panel + '=' + p.rotationQuarterTurns + '&pm' + p.panel + '=' + (p.mirrorX ? 1 : 0) + '&pb' + p.panel + '=' + p.brightnessPercent).join('&');
+  if (await send('set', arg)) toast('已发送 11 块板的校准设置；请看实体板核对', true);
+};
+const selectedPanel = () => +$('pPanel').value - 1;
+const showPanelOrientation = () => {
+  const p = selectedPanel();
+  $('pRot').value = orientationRot[p]; $('pMirror').value = orientationMirror[p];
+};
+$('pRot').disabled = $('pMirror').disabled = $('pReset').disabled = true;
+$('pRot').onchange = e => { if (!orientationReady) return; const p = selectedPanel(); orientationRot[p] = +e.target.value; setOne('pr' + (p + 1), e.target.value); };
+$('pMirror').onchange = e => { if (!orientationReady) return; const p = selectedPanel(); orientationMirror[p] = +e.target.value; setOne('pm' + (p + 1), e.target.value); };
+$('pReset').onclick = () => { if (!orientationReady) return; const p = selectedPanel(); orientationRot[p] = orientationMirror[p] = 0; showPanelOrientation(); send('set', 'pr' + (p + 1) + '=0&pm' + (p + 1) + '=0'); };
 $("panelBrightness").innerHTML = PANEL_NAMES.map((name, i) => `<label class="line">${i + 1} · ${name}<input type="range" id="pb${i + 1}" min="0" max="100" value="100"><span id="pv${i + 1}" style="min-width:48px;text-align:right;font-family:var(--mono)">100%</span></label>`).join("");
 for (let p = 1; p <= 11; p++) {
   $("pb" + p).disabled = true;
@@ -342,10 +408,13 @@ $("sLock").onchange = e => setOne("lock", e.target.value);
 $("sSlp").onchange = e => setOne("slp", e.target.value);
 $("sRemote").onchange = e => setOne("remote", e.target.checked ? 1 : 0);
 const panelTestLimits = () => {
-  const bridge = [3, 6, 9].includes(+$('pPanel').value), axis = +$('pAxis').value;
+  const number = +$('pPanel').value, bridge = [3, 6, 9].includes(number), axis = +$('pAxis').value;
+  for (const r of $('pRot').options) r.disabled = bridge && (r.value === '1' || r.value === '3');
+  $('pOrientGuide').textContent = bridge ? '光桥：红色靠前一个盒子、上侧；绿色靠后一个盒子、上侧；蓝色靠前一个盒子、下侧；白色靠后一个盒子、下侧。' : [2,4,7,10].includes(number) ? '背板：面对盒子正面，红色在左上、绿色在右上、蓝色在左下、白色在右下。' : '底板：从上方看盒子，红色在远侧左边、绿色在远侧右边、蓝色在近侧左边、白色在近侧右边。';
   const max = bridge ? (axis === 2 ? 32 : 8) : 16;
   $('pLine').max = max; if (+$('pLine').value > max) $('pLine').value = max;
-  $('pLine').disabled = axis === 0;
+  $('pLine').disabled = axis === 0 || axis === 3;
+  showPanelOrientation();
 };
 $('pPanel').onchange = panelTestLimits; $('pAxis').onchange = panelTestLimits;
 $('pBri').oninput = e => $('pBriV').textContent = e.target.value + ' · ' + Math.round(e.target.value / 255 * 100) + '%';
@@ -358,7 +427,7 @@ panelTestLimits();
 $("logRefresh").onclick = () => send("log");
 $("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
 $("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
-if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Relay_11PanelBrightness_20261028.bin", location.href).href;
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Relay_11PanelOrientation_20261028.bin", location.href).href;
 else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
 $("otaGo").onclick = () => {
   const u = $("otaUrl").value.trim();
@@ -405,6 +474,11 @@ function paint() {
   $("tKey").textContent = dev && !dev.key ? "ESP32 没设密钥" : hasKey ? "密钥已填" : "没填密钥（只能看）";
   if (!dev) return;
   const d = dev;
+  const calReady = !!calibrationFromStatus();
+  const calLive = !!devAt && Date.now() - devAt < 25000;
+  $('calCopy').disabled = $('calDownload').disabled = !calReady;
+  $('calApply').disabled = !pendingCalibration || !calReady || !calLive;
+  $('calState').textContent = !calReady ? '需要 ESP32 安装含方向校准的新固件。' : calLive ? '已收到 ESP32 当前设置；导出前请等刚才的修改回报到这里。' : '这是 ESP32 上次回报的设置，设备目前未确认在线。';
   const state = (ST[d.state] || d.state) + (d.state === "focus" ? " Box " + d.box : "");
   $("ovKv").innerHTML =
     `<dt>状态</dt><dd>${d.sleep ? "省电待机（简单动画，有人互动就恢复）" : esc(state)}${d.test ? "（测试图案）" : ""}</dd>` +
@@ -429,7 +503,7 @@ function paint() {
   $("fwNow").textContent = d.fw;
   if (d.aud) {
     $("musicList").innerHTML = LABS.concat([["#00004d", "完整旅程音乐"]]).slice(0, d.aud.length).map(([c, n], i) => `<div class="it"><span><b style="color:${c}">●</b> ${n} <span class="muted">${d.aud[i] ? d.aud[i].toFixed(1) + " 秒音乐" : "电子提示音"}</span></span>` +
-      (d.aud[i] ? `<button class="g" onclick="send('atest','${i + 1}')">试听</button>` : "") + `</div>`).join("");
+      (d.aud[i] ? `<button class="g" onclick="send('atest','${i + 1}')">设备试听 15 秒</button>` : "") + `</div>`).join("");
   }
   const ip = d.ip && d.ip !== "-" ? d.ip : "192.168.4.1";
   $("audioLink").href = "http://" + ip + "/audio";
@@ -446,6 +520,11 @@ function paint() {
       c.pb.forEach((v, i) => { $("pb" + (i + 1)).value = v; $("pv" + (i + 1)).textContent = v + "%"; });
       $("sMute").checked = c.mute;
     }
+    orientationReady = Array.isArray(c.pr) && c.pr.length === 11 && Array.isArray(c.pm) && c.pm.length === 11;
+    $('pAxis').querySelector('option[value="3"]').disabled = !orientationReady;
+    $('pOrientNote').textContent = orientationReady ? '调整后自动保存；请看实体灯板确认方向。' : '需要安装含方向校准功能的新固件。';
+    $('pRot').disabled = $('pMirror').disabled = $('pReset').disabled = !orientationReady;
+    if (orientationReady) { orientationRot = c.pr.slice(); orientationMirror = c.pm.slice(); panelTestLimits(); }
     $("sS1").value = c.s1; $("vS1").textContent = c.s1; $("sS2").value = c.s2; $("vS2").textContent = c.s2;
     $("sHall").value = c.hall; $("sLock").value = c.lock; $("sSlp").value = c.slp ?? 10; $("sRemote").checked = !!c.remote;
     $("sBtns").innerHTML = c.btn.map((v, i) => `<label class="line" style="justify-content:flex-start"><input type="checkbox" ${v ? "checked" : ""} onchange="send('set','b${i + 1}='+(this.checked?1:0))"> 按钮 ${i + 1}</label>`).join("");
