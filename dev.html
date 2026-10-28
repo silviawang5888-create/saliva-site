@@ -257,7 +257,7 @@
     <dl class="kv"><dt>现在的版本</dt><dd id="fwNow">-</dd></dl>
     <ol class="muted" style="margin:0;padding-left:20px">
       <li>Arduino IDE：Sketch → Export Compiled Binary。</li>
-      <li>把本次的 <code>D2D_Saliva_NetworkStable_Bilingual_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
+      <li>把本次的 <code>D2D_Saliva_VisitorSync_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
       <li>点下面的按钮。灯会关 30–90 秒，成功后版本号会变成新的编译时间。</li>
     </ol>
     <label>程序链接（https，以 .bin 结尾）<input id="otaUrl" autocapitalize="off" autocorrect="off"></label>
@@ -274,8 +274,8 @@
 
 <script src="dev-i18n.js?v=20261028-v8"></script>
 <script src="live.js?v=d9affb1f"></script>
-<script src="sim/anim.js?v=3db3c0d1" onerror="void 0"></script>
-<script src="sim.js?v=20261028-levelled-audio"></script>
+<script src="sim/anim.js?v=a5fbfe99" onerror="void 0"></script>
+<script src="sim.js?v=20261028-sync"></script>
 <script src="exhibit-audio.js?v=20261028-levelled-media-audio"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
@@ -488,7 +488,7 @@ panelTestLimits();
 $("logRefresh").onclick = () => send("log");
 $("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
 $("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
-if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_NetworkStable_Bilingual_20261028.bin", location.href).href;
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_VisitorSync_20261028.bin", location.href).href;
 else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
 $("otaGo").onclick = () => {
   const u = $("otaUrl").value.trim();

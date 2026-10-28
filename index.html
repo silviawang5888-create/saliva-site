@@ -191,8 +191,10 @@
   </section>
 </div>
 
-<script src="i18n.js?v=20261028-v8"></script>
-<script src="live.js"></script>
+<script src="i18n.js?v=20261028-v9"></script>
+<script src="live.js?v=20261028-sync"></script>
+<script src="sim/anim.js?v=20261028-prerecorded"></script>
+<script src="visitor-animation.js?v=20261028-prerecorded"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
 const loadMqtt = () => new Promise(res => {
@@ -246,6 +248,7 @@ const t = (k, v) => {
 
 const $ = id => document.getElementById(id);
 let st = null, lastMsg = 0, client = null, pending = null, toastTimer = null, libFailed = false;
+let animationFailed = false;
 
 const buildLangMenu = () => {
   $("lang").innerHTML = LANGS.map(([c, n]) => `<option value="${c}"${c === lang ? " selected" : ""}>${n}</option>`).join("");
@@ -311,7 +314,13 @@ const watchSections = () => {
 const highlightHere = () => {
   const m = location.hash.match(/^#box([1-4])$/);
   document.querySelectorAll(".card").forEach(c => c.classList.toggle("here", !!m && c.id === "box" + m[1]));
-  if (m) document.getElementById("box" + m[1]).scrollIntoView({ block: "start" });
+  if (m) {
+    const card = document.getElementById("box" + m[1]);
+    if (!card) return;
+    const explanation = card.querySelector("details.more");
+    if (explanation) explanation.open = true;
+    requestAnimationFrame(() => card.scrollIntoView({ block: "start" }));
+  }
 };
 const toast = (msg, ms = 3500) => { $("toast").textContent = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").textContent = "", ms); };
 
@@ -329,35 +338,35 @@ const render = () => {
   if (fresh) {
     if (!st.on) { main = t("remoteOff"); sub = t("remoteOffSub"); dot.classList.add("busy"); }
     else if (st.s === "idle") { main = st.z ? t("standby") : t("idle"); sub = t("idleSub"); dot.classList.add("live"); enableBox = [true, true, true, true]; enableTour = true; }
-    else if (st.s === "tour") { main = t("tourOn"); sub = t("left", { s: st.left }); dot.classList.add("busy"); enableBox = [true, true, true, true]; }
+    else if (st.s === "tour") { main = t("tourOn"); sub = t("left", { s: st.left }); dot.classList.add("busy"); }
     else if (st.s === "focus") {
       playing = st.b; main = t("focus", { n: st.b }); dot.classList.add("busy");
       sub = t("left", { s: st.left }) + (st.paused ? " · " + t("tourPaused") : "") + (st.lock > 0 ? " · " + t("wait", { s: st.lock }) : "");
-      enableBox = [1, 2, 3, 4].map(n => n !== st.b && st.lock <= 0);
     }
   }
   $("stMain").textContent = main; $("stSub").textContent = sub;
-  document.querySelectorAll(".play").forEach((b, i) => b.disabled = !enableBox[i]);
-  $("tour").disabled = !enableTour;
+  document.querySelectorAll(".play").forEach((b, i) => b.disabled = !!pending || !enableBox[i]);
+  $("tour").disabled = !!pending || !enableTour;
   document.querySelectorAll(".card").forEach((c, i) => c.classList.toggle("playing", playing === i + 1));
-  $("livenote").textContent = D2DLive.isLive() ? "● " + t("live") : t("liveWait");
+  $("livenote").textContent = animationFailed ? t("liveWait") : t("live");
 };
 
 const send = (cmd, box) => {
-  if (!client || !client.connected) return;
+  if (!client || !client.connected || pending || !isFresh() || !st.on || st.s !== "idle") { toast(t("busy")); return; }
   client.publish(TOPIC + "/cmd", cmd);
   pending = { box, at: Date.now() }; toast(t("sent"));
-  setTimeout(() => { if (pending && Date.now() - pending.at >= 2400) { pending = null; toast(t("busy")); } }, 2500);
+  render();
+  setTimeout(() => { if (pending && Date.now() - pending.at >= 2400) { pending = null; toast(t("busy")); render(); } }, 2500);
 };
 
 const connect = () => {
   if (!window.mqtt) { libFailed = true; render(); return; }
   client = mqtt.connect(BROKER, { clientId: "d2d-web-" + Math.random().toString(16).slice(2, 10), reconnectPeriod: 3000, connectTimeout: 8000, clean: true });
-  D2DLive.start(client, TOPIC);
   client.on("connect", () => { client.subscribe(TOPIC + "/status"); render(); });
   client.on("message", (topic, payload, packet) => {
     if (topic !== TOPIC + "/status") return;
     try { st = JSON.parse(payload.toString()); st.retained = !!(packet && packet.retain); lastMsg = Date.now(); } catch (e) { return; }
+    D2DVisitor.update(st);
     soundFromStatus();
     if (pending) {
       const ok = (pending.box && st.s === "focus" && st.b === pending.box) || (!pending.box && st.s === "tour");
@@ -371,7 +380,7 @@ const connect = () => {
 // ===== Sound on the visitor's phone =====
 // Download and decode the entire fixed soundtrack before enabling playback. Once ready, neither
 // the music nor its playback position depends on Wi-Fi, MQTT polling or browser media buffering.
-const SOUND_FILES = { 4: "audio/journey.mp3?v=20261028-full135" };
+const SOUND_FILES = { 4: "audio/journey.mp3?v=20261028-levelled" };
 const audienceAudioAllowed = () => !!st && (st.va === 1 || st.va === true);
 let soundOn = false, soundReady = false, soundLoading = false, soundError = false;
 let soundCtx = null, soundBuffer = null, soundSource = null, soundRef = null;
@@ -386,7 +395,7 @@ const stopSound = () => {
 const localSoundBytes = () => new Promise((resolve, reject) => {
   if (window.D2D_JOURNEY_B64) return resolve(window.D2D_JOURNEY_B64);
   const script = document.createElement("script");
-  script.src = "audio/journey-inline.js";
+  script.src = "audio/journey-inline.js?v=20261028-levelled";
   script.onload = () => window.D2D_JOURNEY_B64 ? resolve(window.D2D_JOURNEY_B64) : reject(new Error("No local soundtrack"));
   script.onerror = () => reject(new Error("No local soundtrack"));
   document.head.appendChild(script);
@@ -405,7 +414,7 @@ const prepareSound = async () => {
     } else {
       const file = SOUND_FILES[4];
       let cache = null, response = null;
-      try { if ("caches" in window) { cache = await caches.open("d2d-fixed-audio-v20261028"); response = await cache.match(file); } } catch (e) {}
+      try { if ("caches" in window) { cache = await caches.open("d2d-fixed-audio-v20261028-levelled"); response = await cache.match(file); } } catch (e) {}
       if (!response) {
         response = await fetch(file, { cache: "force-cache" });
         if (!response.ok) throw new Error("Soundtrack download failed");
@@ -623,6 +632,7 @@ $("tour").addEventListener("click", () => send("tour", 0));
 $("lang").addEventListener("change", e => { lang = e.target.value; try { localStorage.setItem("d2d-lang", lang); } catch (x) {} buildPage(); });
 window.addEventListener("hashchange", highlightHere);
 buildLangMenu(); buildPage(); Scale.start(); soundUi();
+D2DVisitor.init().then(ok => { animationFailed = !ok; if (ok && st) D2DVisitor.update(st); render(); });
 setInterval(render, 1000); loadMqtt().then(connect);
 </script>
 </body>

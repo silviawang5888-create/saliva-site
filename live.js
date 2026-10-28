@@ -8,6 +8,7 @@
   const NAVY = "#00004d";
   const views = [];
   let frame = null, frameAt = 0, client = null, topic = "", timer = null;
+  let localFrameAt = 0, localMode = false;
 
   // LED values are dim by design; lift them a little so they read on a screen (gamma 0.6)
   const lift = new Uint8Array(256);
@@ -57,6 +58,7 @@
   }
 
   function draw() {
+    if (localMode) return;
     for (const v of views) {
       if (v.kind === "panel") {
         const base = v.box * 128 + v.part * 64;
@@ -70,7 +72,7 @@
     }
   }
 
-  function isLive() { return !!frame && Date.now() - frameAt < 3000; }
+  function isLive() { return localMode ? Date.now() - localFrameAt < 8000 : !!frame && Date.now() - frameAt < 3000; }
 
   function askToWatch() {
     if (client && client.connected && document.visibilityState === "visible") client.publish(topic + "/watch", "1");
@@ -79,6 +81,8 @@
   window.D2DLive = {
     // Draw an animation frame supplied by the offline simulator.
     paint(canvas, cols, rows, get) { drawGrid(canvas, cols, rows, get, true); },
+    useLocal() { localMode = true; },
+    localStatus() { localFrameAt = Date.now(); },
     // box 0–3, part 0 = under-light, 1 = back
     addPanel(canvas, box, part) { views.push({ kind: "panel", canvas, box, part }); draw(); },
     // bridge 0–2; vertical = Box n on top, Box n+1 below
@@ -91,7 +95,7 @@
       client.on("connect", () => { client.subscribe(topic + "/live"); askToWatch(); });
       client.on("message", (t, payload) => {
         if (!t.endsWith("/live") || payload.length < 1 + 704 * 3 || payload[0] !== 1) return;
-        frame = new Uint8Array(payload); frameAt = Date.now(); draw();
+        frame = new Uint8Array(payload); frameAt = Date.now(); if (!localMode) draw();
       });
       document.addEventListener("visibilitychange", askToWatch);
       clearInterval(timer);

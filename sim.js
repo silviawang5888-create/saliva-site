@@ -32,7 +32,7 @@
     };
     if (window.D2D_JOURNEY_B64) return decode();
     const script = document.createElement("script");
-    script.src = base + "audio/journey-inline.js";
+    script.src = base + "audio/journey-inline.js?v=20261028-levelled";
     script.onload = decode;
     script.onerror = () => reject(new Error("找不到本地预览音乐 audio/journey-inline.js"));
     document.head.appendChild(script);
@@ -73,7 +73,7 @@
         if (b === JOURNEY && window.location.protocol === "file:") {
           await setMusic(b, await loadLocalJourney(base), "本地包里的 audio/" + f, "site");
         } else {
-          const r = await fetch(base + "audio/" + f + (b === JOURNEY ? "?v=20261028-full135" : ""));
+          const r = await fetch(base + "audio/" + f + (b === JOURNEY ? "?v=20261028-levelled" : ""));
           if (r.ok) await setMusic(b, await r.arrayBuffer(), "网站上的 audio/" + f, "site");
         }
       } catch (e) { if (b === JOURNEY) journeyLoadError = e.message || String(e); }
@@ -300,7 +300,7 @@
   const where = () => {
     if (mode === "test") return "测试图案（看每块灯板方向对不对）";
     if (mode === "idle") return "待机动画";
-    if (mode === "focus") return "只播 Box " + (box + 1) + (T >= ex.boxS(box) ? " · 播完，停在最后的画面然后淡出" : " · 盒内 " + fmt(T) + " / " + ex.boxS(box) + " s");
+    if (mode === "focus") return "只播 Box " + (box + 1) + " · 盒内 " + fmt(T) + " / " + ex.boxS(box) + " s";
     if (T >= ex.tourEnd()) return "导览结束 → 回到待机";
     for (let i = 3; i >= 0; i--) {
       const lt = T - ex.boxStart(i);
