@@ -80,6 +80,7 @@
   .simbar{display:flex;flex-direction:column;gap:10px}
   .simmodes button{padding:8px 12px;font-size:14px}
   .simmodes button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  #showAudioOn[aria-pressed="true"],#showAudioOff[aria-pressed="true"]{outline:3px solid var(--b2);outline-offset:2px}
   .btnlike{display:inline-flex;align-items:center;cursor:pointer;font-size:15px;font-weight:600;padding:10px 14px;border-radius:10px;background:var(--panel2);color:var(--navy);border:1.5px solid var(--line)}
 </style>
 </head>
@@ -131,6 +132,15 @@
     <div class="row"><button class="grow g" data-c="sleep">现在省电待机</button><button class="grow g" data-c="wake">唤醒</button></div>
     <div class="grid4"><button class="b1" data-c="box" data-a="1">Box 1</button><button class="b2" data-c="box" data-a="2">Box 2</button><button class="b3" data-c="box" data-a="3">Box 3</button><button class="b4" data-c="box" data-a="4">Box 4</button></div>
     <div class="muted">这里的 Box 按钮是开发者用的，不受冷却和锁定限制。</div>
+  </div>
+  <div class="card">
+    <h2>展示现场声音（这台电脑 → JBL）</h2>
+    <div class="muted">只让连接 JBL 的这台电脑播放。观众扫 NFC 打开网页不会自动出声；你可在下方决定他们能否看到个人听音按钮。先把本电脑连接 JBL，再选择模式；两种模式都保留灯板动画，并关闭装置的小音响。</div>
+    <div class="row"><button id="showAudioOn" disabled>展示有音乐</button><button class="g" id="showAudioOff">展示无音乐</button><button class="g" id="showAudioRetry" style="display:none">重新准备音乐</button></div>
+    <div class="muted" id="showAudioState">正在准备整段音乐…</div>
+    <label class="line" style="justify-content:flex-start"><input type="checkbox" id="sVisitorAudio" disabled> 允许观众在自己的手机听音乐</label>
+    <div class="muted" id="visitorAudioNote">等待新版 ESP32 程序连接…</div>
+    <div class="muted">“展示有音乐”会自动关闭观众手机听音按钮，并关闭装置小音响；“展示无音乐”只关闭现场声音。以后在 Lab 前厅，可重新勾选“允许观众在自己的手机听音乐”。展示时让此页面保持打开、电脑不要休眠。</div>
   </div>
   <div class="card">
     <h2>单块灯板校准测试</h2>
@@ -249,7 +259,7 @@
     <dl class="kv"><dt>现在的版本</dt><dd id="fwNow">-</dd></dl>
     <ol class="muted" style="margin:0;padding-left:20px">
       <li>Arduino IDE：Sketch → Export Compiled Binary。</li>
-      <li>把本次的 <code>D2D_Saliva_Relay_11PanelOrientation_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
+      <li>把本次的 <code>D2D_Saliva_Relay_VisitorAudioSwitch_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
       <li>点下面的按钮。灯会关 30–90 秒，成功后版本号会变成新的编译时间。</li>
     </ol>
     <label>程序链接（https，以 .bin 结尾）<input id="otaUrl" autocapitalize="off" autocorrect="off"></label>
@@ -264,10 +274,11 @@
 </div>
 <div id="toast"></div>
 
-<script src="dev-i18n.js?v=67a26c09"></script>
+<script src="dev-i18n.js?v=20261028-v8"></script>
 <script src="live.js?v=d9affb1f"></script>
 <script src="sim/anim.js?v=46861cc6" onerror="void 0"></script>
 <script src="sim.js?v=20261028-bridge-audio-fix"></script>
+<script src="exhibit-audio.js?v=20261028-v1"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
 const loadMqtt = () => new Promise(res => {
@@ -327,9 +338,57 @@ async function send(cmd, arg = "") {
   return true;
 }
 
+// ---------- exhibition sound: only this computer sends audio to the JBL ----------
+let showAudioWanted = false, showAudioMode = "off";
+const showAudioPaint = () => {
+  const a = D2DExhibitAudio.state();
+  $("showAudioOn").disabled = !a.ready;
+  $("showAudioRetry").style.display = a.error ? "" : "none";
+  $("showAudioOn").setAttribute("aria-pressed", showAudioMode === "on");
+  $("showAudioOff").setAttribute("aria-pressed", showAudioMode === "off");
+  $("showAudioState").textContent = a.loading ? "正在完整下载并准备音乐…" : a.error ? "音乐未准备好，请检查网络后点“重新准备音乐”。" :
+    !a.ready ? "等待音乐准备…" : showAudioWanted && !a.enabled ? "正在关闭装置小音响和观众手机听音；确认后电脑会播放。" :
+    a.playing ? "展示有音乐：JBL 正在播放。" : a.enabled ? "展示有音乐：已准备，等待导览或 Box 开始。" :
+    dev && dev.cfg && dev.cfg.mute === true ? "展示无音乐：这台电脑和装置小音响都已关闭。" :
+    dev && dev.cfg && dev.cfg.mute === false ? "这台电脑已静音；装置小音响仍开着，请等待静音设置生效。" : "这台电脑已静音；装置小音响状态未确认。";
+};
+D2DExhibitAudio.onChange(showAudioPaint);
+D2DExhibitAudio.prepare();
+$("showAudioRetry").onclick = () => D2DExhibitAudio.prepare();
+$("showAudioOn").onclick = async () => {
+  if (!client || !client.connected || !devAt || Date.now() - devAt > 25000 || !dev || !dev.cfg || typeof dev.cfg.mute !== "boolean" || typeof dev.cfg.va !== "boolean") {
+    toast("先连接含观众听音开关的新 ESP32 程序", false); return;
+  }
+  if (!$("key").value) { toast("先输入开发者密钥，才能关闭装置小音响", false); return; }
+  // Unlock the computer audio while this click still counts as a user gesture.
+  if (!await D2DExhibitAudio.unlock()) { toast("浏览器未允许这台电脑播放声音", false); return; }
+  showAudioWanted = true; showAudioMode = "on";
+  if (dev.cfg.mute && !dev.cfg.va) await D2DExhibitAudio.arm();
+  else {
+    if (!await send("set", "mute=1&va=0")) { showAudioWanted = false; showAudioMode = "off"; }
+    else setTimeout(() => {
+      if (showAudioWanted && !D2DExhibitAudio.state().enabled && (!dev || !dev.cfg || !dev.cfg.mute || dev.cfg.va)) {
+        showAudioWanted = false; showAudioMode = "off"; showAudioPaint(); toast("没有确认小音响已关闭、观众听音已隐藏，电脑音乐未启动", false);
+      }
+    }, 12000);
+  }
+  showAudioPaint();
+};
+$("showAudioOff").onclick = async () => {
+  showAudioWanted = false; showAudioMode = "off"; D2DExhibitAudio.off();
+  if (dev && dev.cfg && dev.cfg.mute === true) { showAudioPaint(); return; }
+  if (client && client.connected && $("key").value) await send("set", "mute=1");
+  else toast("电脑已静音；装置小音响未确认关闭，请检查下方静音选项", false);
+  showAudioPaint();
+};
+
 // ---------- controls ----------
 document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => send(b.dataset.c, b.dataset.a || ""));
 const setOne = (k, v) => send("set", k + "=" + v);
+$('sVisitorAudio').onchange = e => {
+  if (e.target.checked && showAudioWanted) { e.target.checked = false; toast('先关闭中央 JBL，再开放观众手机听音', false); return; }
+  setOne('va', e.target.checked ? 1 : 0);
+};
 const PANEL_NAMES = ["Box 1 底板", "Box 1 后板", "光桥 1", "Box 2 后板", "Box 2 底板", "光桥 2", "Box 3 后板", "Box 3 底板", "光桥 3", "Box 4 后板", "Box 4 底板"];
 $('pAxis').value = '0';
 $('pAxis').querySelector('option[value="3"]').disabled = true;
@@ -398,7 +457,10 @@ $("sBri").oninput = e => $("vBri").textContent = e.target.value;
 $("sBri").onchange = e => setOne("bri", e.target.value);
 $("sVol").oninput = e => $("vVol").textContent = e.target.value;
 $("sVol").onchange = e => setOne("vol", e.target.value);
-$("sMute").onchange = e => setOne("mute", e.target.checked ? 1 : 0);
+$("sMute").onchange = e => {
+  if (!e.target.checked && showAudioWanted) { showAudioWanted = false; showAudioMode = "off"; D2DExhibitAudio.off(); showAudioPaint(); }
+  setOne("mute", e.target.checked ? 1 : 0);
+};
 for (const k of ["S1", "S2"]) {
   $("s" + k).oninput = e => $("v" + k).textContent = e.target.value;
   $("s" + k).onchange = e => setOne(k.toLowerCase(), e.target.value);
@@ -427,7 +489,7 @@ panelTestLimits();
 $("logRefresh").onclick = () => send("log");
 $("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
 $("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
-if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Relay_11PanelOrientation_20261028.bin", location.href).href;
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Relay_VisitorAudioSwitch_20261028.bin", location.href).href;
 else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
 $("otaGo").onclick = () => {
   const u = $("otaUrl").value.trim();
@@ -476,6 +538,9 @@ function paint() {
   const d = dev;
   const calReady = !!calibrationFromStatus();
   const calLive = !!devAt && Date.now() - devAt < 25000;
+  const visitorAudioReady = !!d.cfg && typeof d.cfg.va === "boolean";
+  $('sVisitorAudio').disabled = !visitorAudioReady || !calLive;
+  $('visitorAudioNote').textContent = !visitorAudioReady ? '需要安装含观众听音开关的新固件。' : !calLive ? '等待 ESP32 在线确认观众听音设置。' : d.cfg.va ? '观众页显示个人听音按钮。' : '观众页已隐藏个人听音按钮。';
   $('calCopy').disabled = $('calDownload').disabled = !calReady;
   $('calApply').disabled = !pendingCalibration || !calReady || !calLive;
   $('calState').textContent = !calReady ? '需要 ESP32 安装含方向校准的新固件。' : calLive ? '已收到 ESP32 当前设置；导出前请等刚才的修改回报到这里。' : '这是 ESP32 上次回报的设置，设备目前未确认在线。';
@@ -552,9 +617,16 @@ function connect() {
     if (topic.endsWith("/dev/status")) {
       const fwChanged = dev && dev.fw !== j.fw;
       dev = j; devAt = packet && packet.retain ? 0 : Date.now(); /* a stored (retained) copy is not proof it is online */ if (fwChanged) { cfgFilled = false; toast("程序版本变了：" + j.fw, true); }
+      if (j.cfg && typeof j.cfg.mute === "boolean") $("sMute").checked = j.cfg.mute;
+      if (j.cfg && typeof j.cfg.va === "boolean") $("sVisitorAudio").checked = j.cfg.va;
+      if (devAt && j.cfg && typeof j.cfg.mute === "boolean" && typeof j.cfg.va === "boolean") {
+        if (showAudioWanted && j.cfg.mute && !j.cfg.va && !D2DExhibitAudio.state().enabled) D2DExhibitAudio.arm();
+        if (showAudioWanted && (!j.cfg.mute || j.cfg.va) && D2DExhibitAudio.state().enabled) { showAudioWanted = false; showAudioMode = "off"; D2DExhibitAudio.off(); toast("现场与观众听音设置发生冲突，电脑音乐已停止", false); }
+      }
     } else if (topic.endsWith("/dev/ack")) {
       if (pending[j.n] !== undefined) { delete pending[j.n]; toast(j.m, j.ok); }
-    } else { pubStatus = j; }
+    } else { pubStatus = j; D2DExhibitAudio.onStatus(j, !!(packet && packet.retain)); }
+    showAudioPaint();
     paint();
   });
 }
