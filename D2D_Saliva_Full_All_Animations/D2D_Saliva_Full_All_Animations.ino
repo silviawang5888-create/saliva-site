@@ -54,8 +54,11 @@
  *    http://192.168.4.1/wifi   saved Wi-Fi networks
  *    http://192.168.4.1/update upload a new program (.bin from Sketch → Export Compiled Binary)
  *    Arduino IDE: laptop on "Saliva-Control" → Tools → Port → network port "saliva-esp32" (password d2d-saliva)
- *    IMPORTANT: upload once by USB with Tools → Flash Size 8MB, Partition Scheme
- *               "8M with spiffs (3MB APP/1.5MB SPIFFS)" — a scheme without OTA can't update over Wi-Fi.
+ *    IMPORTANT: upload once by USB with Tools → Flash Size 16MB, Partition Scheme
+ *               "16M Flash (3MB APP/9.9MB FATFS)" — the music lives in FATFS, and this scheme keeps OTA.
+ *    HOTSPOT: Saliva-Control is "smart" (see AP_ALWAYS_ON): on for 10 min after power-on, by itself when
+ *             school Wi-Fi is down for 30 s, after 3 quick presses of Box 1; off when school Wi-Fi is steady.
+ *             Then open the control page at the ESP32's school IP (shown on the developer website).
  *
  *  SERIAL 115200   g = tour · 1–4 = focus box · s = stop (idle) · t = test pattern on/off · h = Hall readings on/off
  *                  w = backup way to save RMIT-University ID + password · x = erase all saved networks
@@ -110,6 +113,18 @@ const uint32_t SUPPLY_LIMIT_MA   = 5500;  // software limit per 10 A supply (lea
 #define ENABLE_WIFI 1                      // 0 = no control page (use this if the LEDs flicker with Wi-Fi on)
 const char* AP_SSID = "Saliva-Control";
 const char* AP_PASS = "d2d-saliva";       // at least 8 characters
+// Local hotspot policy (29 Oct). The hotspot and the school Wi-Fi share ONE radio: while the hotspot
+// is on, every beacon / phone on it takes air time from the school link, and the hotspot has to hop
+// channels whenever the school connection rescans. So by default the hotspot is "smart":
+//   · on for 10 min after power-on, after 3 quick presses of Box 1, or after the console sends "ap"
+//   · on by itself whenever the school Wi-Fi has been down for 30 s (so you can always get in to fix it)
+//   · never switched off while a phone / laptop is connected to it
+//   · off once the school Wi-Fi has been up for 60 s and nobody is on the hotspot
+// The control page still works off-hotspot at the ESP32's school IP and through the developer website.
+const bool     AP_ALWAYS_ON  = false;            // true = old behaviour: hotspot never turns off
+const uint32_t AP_ON_MS      = 10UL * 60 * 1000; // how long a boot / triple press / "ap" keeps it on
+const uint32_t AP_OFFLINE_MS = 30000;            // school Wi-Fi down this long → hotspot comes back
+const uint32_t AP_STABLE_MS  = 60000;            // school Wi-Fi up this long → hotspot may turn off
 const char* FW_VERSION = __DATE__ " " __TIME__;   // shown on both consoles — tells you an update really arrived
 
 // Internet Wi-Fi is set on the page http://192.168.4.1/wifi (up to 3 networks, tried in order).
@@ -756,8 +771,9 @@ volatile bool sleeping = false;          // standby: simple idle animation, dimm
 const uint32_t SLEEP_FRAME_MS = 200;     // 5 frames/s instead of 10 → the chip works about half as much
 const uint8_t SLEEP_DIM = 140;           // 140/255 ≈ 55 % of normal brightness
 uint32_t lastActivityMs = 0;             // last visitor / developer action
-volatile uint32_t apUntilMs = 10UL * 60 * 1000;   // local hotspot "Saliva-Control" stays on until this time
+volatile uint32_t apUntilMs = AP_ON_MS;   // local hotspot "Saliva-Control" stays on at least until this time
 volatile bool apOn = true;
+uint32_t staUpSinceMs = 0, staDownSinceMs = 0;   // when the school Wi-Fi last came up / went down
 // ---- Live view for the websites: a small copy of what the LEDs show ----
 // Only sent while someone has a website open (the page asks every 15 s), 4 frames/s.
 // Frame = 1 version byte, then RGB for: Box 1–4 (under 8x8, back 8x8 — each 16x16 panel shrunk 2x,
@@ -922,7 +938,7 @@ void processCmds(uint32_t now) {
           if (tourPaused) resumeTour(now); else goIdle(now);
           lastButtonMs[0] = 0; lastAcceptMs = 0;
         }
-        apUntilMs = now + 10UL * 60 * 1000;
+        apUntilMs = now + AP_ON_MS;      // apManage() (network task) switches it on within a moment
         lastEvent = "hotspot on 10 min";
         Audio::play(CUE_TICK);
         break;
@@ -1237,10 +1253,10 @@ var r=()=>{fetch('/api/status').then(x=>x.json()).then(d=>{
  g('briv').textContent=d.bri;g('volv').textContent=d.vol;g('s1v').textContent=d.s1;g('s2v').textContent=d.s2;
  if(lang==='en'){
   const state={'待机':'Idle','导览':'Journey','聚焦':'Focus'}[d.state]||d.state;
-  const apLeft=String(d.apLeft).replace('一直开启','always on').replace('正在重试启动','retrying startup');
-  g('st').textContent='Status: '+(d.sleep?'Power-saving idle (interaction wakes the device)':state)+'\nLocal hotspot Saliva-Control: '+(d.ap?'On ('+apLeft+')':'Retrying hotspot startup')+'\n\nLatest event: '+d.event+'\nTime: '+d.t.toFixed(1)+' s\nHall: '+d.hall+' (resting '+d.hallBase+')'+(d.magnet?'  Magnet!':'')+'\nButtons: '+d.btn.map(b=>b?'●':'○').join(' ')+'\nTest pattern: '+(d.test?'On':'Off')+'\nChip temperature: '+d.temp+' °C'+(d.temp>=75?'  ⚠ Too hot':d.temp>=60?' (warm)':' (normal)')+'\nBoots: '+d.boot+', uptime '+Math.floor(d.up/3600)+' h '+Math.floor(d.up/60%60)+' min'+'\nWi-Fi: '+(d.wifi?'Connected to '+d.ssid+' '+d.ip:'Disconnected')+'\nCloud (visitor site): '+(d.mqtt?'Connected':'Disconnected');
+  const apLeft=d.apLeftEn||String(d.apLeft).replace('一直开启','always on');
+  g('st').textContent='Status: '+(d.sleep?'Power-saving idle (interaction wakes the device)':state)+'\nLocal hotspot Saliva-Control: '+(d.ap?'On ('+apLeft+')':'Off ('+apLeft+')')+'\n\nLatest event: '+d.event+'\nTime: '+d.t.toFixed(1)+' s\nHall: '+d.hall+' (resting '+d.hallBase+')'+(d.magnet?'  Magnet!':'')+'\nButtons: '+d.btn.map(b=>b?'●':'○').join(' ')+'\nTest pattern: '+(d.test?'On':'Off')+'\nChip temperature: '+d.temp+' °C'+(d.temp>=75?'  ⚠ Too hot':d.temp>=60?' (warm)':' (normal)')+'\nBoots: '+d.boot+', uptime '+Math.floor(d.up/3600)+' h '+Math.floor(d.up/60%60)+' min'+'\nWi-Fi: '+(d.wifi?'Connected to '+d.ssid+' '+d.ip:'Disconnected')+'\nCloud (visitor site): '+(d.mqtt?'Connected':'Disconnected');
  }else{
-  g('st').textContent='状态：'+(d.sleep?'省电待机（简单动画；有人按按钮、转盘或用网站就恢复）':d.state)+'\n本地热点 Saliva-Control：'+(d.ap?'开（'+d.apLeft+'）':'正在重试启动')+'\n'+'\n最近事件：'+d.event+'\n时间：'+d.t.toFixed(1)+' s\n霍尔：'+d.hall+'（静止 '+d.hallBase+'）'+(d.magnet?'  磁铁!':'')+'\n按钮：'+d.btn.map(b=>b?'●':'○').join(' ')+'\n测试图案：'+(d.test?'开':'关')+'\n芯片温度：'+d.temp+' °C'+(d.temp>=75?'  ⚠ 太热':d.temp>=60?'（偏热，正常范围）':'（正常）')+'\n开机：'+d.boot+'，已运行 '+Math.floor(d.up/3600)+' 小时 '+Math.floor(d.up/60%60)+' 分'+'\n上网：'+(d.wifi?'已连上 '+d.ssid+' '+d.ip:'未连上')+'\n云端（观众网站）：'+(d.mqtt?'已连上':'未连上');
+  g('st').textContent='状态：'+(d.sleep?'省电待机（简单动画；有人按按钮、转盘或用网站就恢复）':d.state)+'\n本地热点 Saliva-Control：'+(d.ap?'开（'+d.apLeft+'）':'关（'+d.apLeft+'）')+'\n'+'\n最近事件：'+d.event+'\n时间：'+d.t.toFixed(1)+' s\n霍尔：'+d.hall+'（静止 '+d.hallBase+'）'+(d.magnet?'  磁铁!':'')+'\n按钮：'+d.btn.map(b=>b?'●':'○').join(' ')+'\n测试图案：'+(d.test?'开':'关')+'\n芯片温度：'+d.temp+' °C'+(d.temp>=75?'  ⚠ 太热':d.temp>=60?'（偏热，正常范围）':'（正常）')+'\n开机：'+d.boot+'，已运行 '+Math.floor(d.up/3600)+' 小时 '+Math.floor(d.up/60%60)+' 分'+'\n上网：'+(d.wifi?'已连上 '+d.ssid+' '+d.ip:'未连上')+'\n云端（观众网站）：'+(d.mqtt?'已连上':'未连上');
  }})
  .catch(()=>{g('st').textContent=lang==='en'?'Cannot connect to ESP32':'连不上 ESP32'})}
 var lg=()=>{fetch('/api/log').then(x=>x.text()).then(t=>{const e=g('log');const end=e.scrollTop+e.clientHeight>=e.scrollHeight-8;e.textContent=t;if(end)e.scrollTop=e.scrollHeight}).catch(()=>{})}
@@ -1249,6 +1265,7 @@ setLanguage(lang,false);r();lg();setInterval(r,1000);setInterval(lg,3000);
 
 bool mqttConnected();   // defined in the cloud section
 String jsonEsc(const String& in);
+String apStatusText(bool en);   // defined next to apManage()
 void handleStatus() {
   const uint32_t now = millis();
   static const char* ST[3] = { "待机", "导览", "聚焦" };
@@ -1257,9 +1274,8 @@ void handleStatus() {
   String j = "{";
   j += "\"sleep\":" + String(sleeping ? "true" : "false") + ",\"slp\":" + String(cfg.sleepMin) + ",";
   {
-    j += "\"ap\":" + String(apOn ? "true" : "false") + ",\"apLeft\":\"";
-    j += apOn ? String("一直开启") : String("正在重试启动");
-    j += "\",";
+    j += "\"ap\":" + String(apOn ? "true" : "false") + ",\"apLeft\":\"" + apStatusText(false);
+    j += "\",\"apLeftEn\":\"" + apStatusText(true) + "\",";
   }
   j += "\"state\":\""; j += ST[state]; if (state == ST_FOCUS) { j += " Box "; j += String(focusBox + 1); if (tourPaused) j += "（导览暂停中）"; } j += "\",";
   j += "\"event\":\""; j += lastEvent; j += "\",";
@@ -1346,6 +1362,7 @@ const int NET_MAX = 3;
 NetCfg nets[NET_MAX];
 int netCount = 0;
 int netTry = -1;            // which saved network we are trying / using
+int netFails = 0;           // failed attempts on netTry in a row (2 → move on to the next saved network)
 bool wifiSetupOnly = false; // hold Box 1 button through boot to keep the AP stable for configuration
 bool wasConnected = false;
 // ---- why the connection drops (shown on the developer console) ----
@@ -1357,14 +1374,16 @@ uint32_t liveSlowUntil = 0;
 // ---- radio power: low and cool by default, stronger only when the signal is weak, always low when hot ----
 const int RSSI_WEAK = -75, RSSI_GOOD = -68;     // dBm
 const int TEMP_HOT = 70, TEMP_OK = 62;          // °C, chip sensor
-uint8_t radioLevel = 0;                         // 0 = 15 dBm (normal) · 1 = 19.5 dBm (weak signal) · 2 = 11 dBm (too hot)
+// 29 Oct: "too hot" no longer drops below normal. 11 dBm inside a warm, closed box was enough to lose
+// the school link; the radio is a small part of the chip's heat compared with the LED load.
+uint8_t radioLevel = 0;                         // 0 = 15 dBm (normal) · 1 = 19.5 dBm (weak signal) · 2 = 15 dBm (hot: no boost)
 uint32_t weakSince = 0;
 bool tooHot = false;
 void setRadio(uint8_t lvl, const char* why) {
   if (lvl == radioLevel) return;
   radioLevel = lvl;
-  WiFi.setTxPower(lvl == 1 ? WIFI_POWER_19_5dBm : lvl == 2 ? WIFI_POWER_11dBm : WIFI_POWER_15dBm);
-  logLine(String("无线功率 → ") + (lvl == 1 ? "19.5 dBm" : lvl == 2 ? "11 dBm" : "15 dBm") + "（" + why + "）");
+  WiFi.setTxPower(lvl == 1 ? WIFI_POWER_19_5dBm : WIFI_POWER_15dBm);
+  logLine(String("无线功率 → ") + (lvl == 1 ? "19.5 dBm" : "15 dBm") + "（" + why + "）");
 }
 void manageRadio(uint32_t now) {               // called about every second from the network task
   static uint32_t last = 0;
@@ -1373,7 +1392,7 @@ void manageRadio(uint32_t now) {               // called about every second from
   const int t = (int)temperatureRead();
   if (!tooHot && t >= TEMP_HOT) { tooHot = true; liveSlowUntil = now + 600000; }
   if (tooHot && t <= TEMP_OK) tooHot = false;
-  if (tooHot) { setRadio(2, "芯片太热，降低功率"); return; }
+  if (tooHot) { setRadio(2, "芯片偏热，不再加大功率"); return; }
   if (lastRssi && lastRssi < RSSI_WEAK) { if (!weakSince) weakSince = now; }
   else if (lastRssi > RSSI_GOOD) weakSince = 0;
   if (weakSince && now - weakSince > 30000) setRadio(1, "信号弱，加大功率");
@@ -1436,6 +1455,7 @@ void loadNetCreds() {
 
 void connectNet(int i) {
   if (i < 0 || i >= netCount) return;
+  if (i != netTry) netFails = 0;
   netTry = i;
   const NetCfg& n = nets[i];
   WiFi.disconnect(false);
@@ -1504,12 +1524,17 @@ void publishStatus() {
   const uint32_t now = millis();
   const char* S[3] = { "idle", "tour", "focus" };
   float left = 0, lock = 0;
-  if (state == ST_TOUR) left = tourEnd() - (now - tourStartMs) / 1000.0f;
+  // p = seconds into the animation that is on the LEDs now (same clock as loop() uses), so the
+  // visitor page's pre-made animation (visitor-animation.js) can follow the installation
+  float p = (now - stateStartMs) / 1000.0f;
+  if (state == ST_TOUR) { p = (now - tourStartMs) / 1000.0f; left = tourEnd() - p; }
   if (state == ST_FOCUS) {
     const float ft = (now - focusStartMs) / 1000.0f;
+    p = ft;
     left = focusEnd(focusBox) - ft;
     lock = cfg.focusLockS - ft;
   }
+  if (p < 0) p = 0;
   if (left < 0) left = 0;
   if (lock < 0) lock = 0;
   // sound for the visitors' phones: track + position + the exact clock time it was measured (ms since 1970)
@@ -1518,8 +1543,8 @@ void publishStatus() {
   struct timeval tv; gettimeofday(&tv, nullptr);
   const long long ms = (tv.tv_sec > 1700000000) ? (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000 : 0;   // 0 = clock not set yet
   char buf[300];
-  snprintf(buf, sizeof(buf), "{\"s\":\"%s\",\"b\":%d,\"left\":%d,\"lock\":%d,\"paused\":%d,\"on\":%d,\"va\":%d,\"z\":%d,\"ts\":%ld,\"at\":%d,\"ap\":%.2f,\"ae\":%.2f,\"ms\":%lld}",
-           S[state], state == ST_FOCUS ? focusBox + 1 : 0, (int)(left + 0.5f), (int)(lock + 0.5f), tourPaused ? 1 : 0,
+  snprintf(buf, sizeof(buf), "{\"s\":\"%s\",\"b\":%d,\"p\":%.2f,\"left\":%d,\"lock\":%d,\"paused\":%d,\"on\":%d,\"va\":%d,\"z\":%d,\"ts\":%ld,\"at\":%d,\"ap\":%.2f,\"ae\":%.2f,\"ms\":%lld}",
+           S[state], state == ST_FOCUS ? focusBox + 1 : 0, p, (int)(left + 0.5f), (int)(lock + 0.5f), tourPaused ? 1 : 0,
            (cfg.remoteOn && cfg.mode == MODE_AUTO) ? 1 : 0, cfg.visitorAudioOn ? 1 : 0, sleeping ? 1 : 0, (long)time(nullptr), wb, wp, we, ms);
   const String topic = String(MQTT_TOPIC) + "/status";
   mqtt.publish(topic.c_str(), buf, true);
@@ -1560,14 +1585,25 @@ void netLoop(uint32_t now) {
       lastDrop = "Wi-Fi 断开：原因 " + String(lastDiscReason) + " " + discText(lastDiscReason) + "，断开前信号 " + String(dropRssi) + " dBm";
       logLine(lastDrop);
     }
-    if (netCount && now - lastWifiTry > 20000) {
-      if (netTry >= 0 && netTry < netCount) netNote = nets[netTry].ssid + " 20 秒没连上，换下一个";
-      startSchoolWifi();
+    // School login (PEAP) on a busy campus can take 10–20 s, so give it 30 s, and try the same
+    // network twice before moving on (the old 20 s / move-on-at-once rule cut slow logins short
+    // and kept hopping away from RMIT-University to the other saved networks).
+    const bool cur = netTry >= 0 && netTry < netCount;
+    const uint32_t timeout = (cur && nets[netTry].ent) ? 30000 : 20000;
+    if (netCount && now - lastWifiTry > timeout) {
+      if (cur && netCount > 1 && netFails >= 1) {
+        netNote = nets[netTry].ssid + " 两次没连上，换下一个";
+        startSchoolWifi();
+      } else {
+        if (cur) { netFails++; netNote = nets[netTry].ssid + " 没连上，再试一次"; connectNet(netTry); }
+        else startSchoolWifi();
+      }
     }
     return;
   }
   if (!wasConnected) {
     wasConnected = true;
+    netFails = 0;
     netNote = "已连上 " + WiFi.SSID();
     configTime(0, 0, "pool.ntp.org", "time.google.com");   // clock for checking developer commands
     Serial.print(F("Wi-Fi: connected to ")); Serial.print(WiFi.SSID());
@@ -1630,7 +1666,7 @@ label{font-size:14px;display:flex;flex-direction:column;gap:4px}.muted{color:#8f
 <h1>网络设置</h1><a href="/">← 回控制台</a>
 <div class="card"><h2>现在</h2><div id="st">读取中…</div></div>
 <div class="card"><h2>已保存的网络（按顺序尝试，最多 3 个）</h2><div id="saved"></div>
-<div class="muted">断网时每 20 秒换下一个。密码只存在 ESP32 里，页面上不会显示。</div></div>
+<div class="muted">断网时同一个网络先试两次（学校登录每次最多 30 秒，普通 Wi-Fi 20 秒），再换下一个。密码只存在 ESP32 里，页面上不会显示。</div></div>
 <div class="card"><h2>添加 / 修改网络</h2>
 <div><button class="g" onclick="scan()">扫描附近网络</button> <span id="sc" class="muted"></span></div>
 <div id="list"></div>
@@ -2005,7 +2041,7 @@ void publishDev() {
   j += ",\"temp\":" + String((int)temperatureRead());
   j += ",\"ssid\":\"" + jsonEsc(on ? WiFi.SSID() : String("")) + "\",\"ip\":\"" + (on ? WiFi.localIP().toString() : String("-")) + "\"";
   j += ",\"rssi\":" + String(on ? WiFi.RSSI() : 0) + ",\"mac\":\"" + WiFi.macAddress() + "\"";
-  j += ",\"radio\":" + String(radioLevel == 1 ? 19.5f : radioLevel == 2 ? 11.0f : 15.0f, 1) + ",\"hot\":" + String(tooHot ? 1 : 0);
+  j += ",\"radio\":" + String(radioLevel == 1 ? 19.5f : 15.0f, 1) + ",\"hot\":" + String(tooHot ? 1 : 0);
   j += ",\"drops\":{\"w\":" + String(wifiDrops) + ",\"m\":" + String(mqttDrops) + ",\"last\":\"" + jsonEsc(lastDrop) + "\"}";
   j += ",\"key\":" + String(devKey.length() ? "true" : "false");
   j += ",\"sleep\":" + String(sleeping ? "true" : "false") + ",\"ap\":" + String(apOn ? "true" : "false");
@@ -2190,20 +2226,57 @@ void onDevCmd(const String& msg) {
 // ---- Captive portal: joining "Saliva-Control" opens the console by itself ----
 DNSServer dns;
 
-// Keep the local recovery hotspot available during an exhibition. Turning it off while the
-// station connection flaps makes Mac clients time out while joining Saliva-Control.
+// Smart hotspot (see AP_ALWAYS_ON at the top). It is never switched off while someone is on it,
+// and only after the school link has been steady for AP_STABLE_MS, so a flapping school connection
+// can't make Mac clients time out while joining Saliva-Control.
+bool apForced() { return AP_ALWAYS_ON || wifiSetupOnly || netCount == 0; }
+bool apWanted(uint32_t now, bool up) {
+  if (apForced()) return true;
+  if ((int32_t)(apUntilMs - now) > 0) return true;                 // boot / triple press / console "ap"
+  if (apOn && WiFi.softAPgetStationNum() > 0) return true;         // someone is using the hotspot
+  if (!up) return apOn || now - staDownSinceMs > AP_OFFLINE_MS;    // school Wi-Fi down → bring it back
+  return apOn && now - staUpSinceMs < AP_STABLE_MS;                // school Wi-Fi just came back → wait
+}
 void apManage(uint32_t now) {
   static uint32_t lastTry = 0;
-  if (apOn) return;
+  static bool wasUp = false;
+  const bool up = WiFi.status() == WL_CONNECTED;
+  if (up != wasUp || (!up && !staDownSinceMs)) { wasUp = up; if (up) staUpSinceMs = now; else staDownSinceMs = now; }
+  const bool want = apWanted(now, up);
+  if (want == apOn) return;
   if (lastTry && now - lastTry < 3000) return;
   lastTry = now;
-  WiFi.mode(WIFI_AP_STA);
-  if (WiFi.softAP(AP_SSID, AP_PASS)) {
-    dns.start(53, "*", WiFi.softAPIP());
-    netNote = "本地热点 Saliva-Control 已打开";
-    apOn = true;
+  if (want) {
+    WiFi.mode(WIFI_AP_STA);
+    if (WiFi.softAP(AP_SSID, AP_PASS)) {
+      dns.start(53, "*", WiFi.softAPIP());
+      apOn = true;
+      if (!up && (int32_t)(apUntilMs - now) <= 0) apUntilMs = now + AP_ON_MS;   // stay on a while, don't flap
+      netNote = up ? "本地热点 Saliva-Control 已打开（10 分钟）" : "学校网断开，本地热点 Saliva-Control 已自动打开";
+      devDirty = true;
+    }
+  } else {
+    dns.stop();
+    WiFi.softAPdisconnect(true);     // radio back to school-only (station mode); the school link stays up
+    apOn = false;
+    netNote = "学校网稳定，本地热点已关闭（让学校网更稳；断网 30 秒或连按 Box 1 三次会自动打开）";
     devDirty = true;
   }
+}
+String apStatusText(bool en) {
+  const uint32_t now = millis();
+  const bool up = WiFi.status() == WL_CONNECTED;
+  if (!apOn) return en ? "opens by itself after 30 s without school Wi-Fi, or press Box 1 three times"
+                       : "省电，让学校网更稳；断网 30 秒或连按 Box 1 三次会自动打开";
+  if (apForced()) return en ? "always on" : "一直开启";
+  const int32_t left = (int32_t)(apUntilMs - now);
+  if (left > 0) {
+    const String m = String((left + 59999) / 60000);
+    return en ? "about " + m + " min left" : "还剩约 " + m + " 分钟";
+  }
+  if (WiFi.softAPgetStationNum() > 0) return en ? "kept on while a device is connected" : "有设备连着，保持开启";
+  if (!up) return en ? "on until school Wi-Fi is back" : "学校网恢复前一直开启";
+  return en ? "closing once school Wi-Fi is steady" : "学校网稳定后自动关闭";
 }
 void handleNotFound() {
   const String host = server.hostHeader();
@@ -2286,6 +2359,14 @@ void setup() {
   Serial.println(F("step 3/4: Wi-Fi"));
   WiFi.mode(WIFI_AP_STA);
   WiFi.setTxPower(WIFI_POWER_15dBm);     // starts cool; manageRadio() raises it only while the signal is weak
+  // Campus stability (29 Oct):
+  //  · no modem sleep — with sleep on, the ESP32 dozes between beacons and campus APs drop it
+  //    (reason 200 / 4 "beacon lost / inactive"), and MQTT keep-alives arrive late
+  //  · scan every channel and join the STRONGEST RMIT access point. The default fast scan joins the
+  //    first one it hears, which in a big building is often a weak, far-away AP.
+  WiFi.setSleep(false);
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
   WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t info) { lastDiscReason = info.wifi_sta_disconnected.reason; },
                ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   apOn = WiFi.softAP(AP_SSID, AP_PASS);
