@@ -1,0 +1,15 @@
+本次更新：ESP32 自带的 192.168.4.1 本地控制页增加中文／English 按钮。
+切换后会记住该浏览器选择的语言。完整导览、灯板校准等原有控制不变。
+
+更新主板（现场最方便）：
+1. 连接 Saliva-Control Wi-Fi。
+2. 打开 http://192.168.4.1/update 。
+3. 选择 firmware/D2D_Saliva_Box4_Hand20_IdleOff_Bilingual_20261028.bin 上传。
+4. 等主板重启，再打开 http://192.168.4.1/ ，右上角会出现 English 按钮。
+
+如要使用 GitHub 开发者网站远程更新：
+把此文件夹中的 dev.html 上传到 saliva-site 仓库根目录，把 firmware/ 中的新 .bin 上传到仓库的 firmware/ 目录；不要上传整个文件夹作为子目录。等 GitHub Pages 部署后，强制刷新开发者网站“更新程序”，核对链接的文件名是 D2D_Saliva_Box4_Hand20_IdleOff_Bilingual_20261028.bin，再执行更新。
+
+这是完整的 11 块灯板主程序，包含此前 Box 4 动画、待机底板关闭和手形保持 20% 的改动。只更新 GitHub 的 dev.html，不会改变 ESP32 自带的本地页面。
+
+本次已通过网页脚本语法检查及 Arduino 编译；尚未在实体 ESP32 上上传和操作验证。
