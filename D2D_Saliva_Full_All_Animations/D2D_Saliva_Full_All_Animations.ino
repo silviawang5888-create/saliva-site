@@ -401,6 +401,7 @@ static const int NTRACK = 5, JOURNEY = 4, JOURNEY_BOXES = 4;   // a full journey
 static bool fsOk = false;
 static volatile bool hasTrack[NTRACK] = { false, false, false, false, false };
 static uint32_t trackData[NTRACK] = { 0 }, trackLen[NTRACK] = { 0 };   // data offset / bytes
+static uint32_t trackHdrLen[NTRACK] = { 0 };   // bytes the WAV header promises (more than trackLen = file was cut off)
 static void trackPath(int t, char* p) { if (t == JOURNEY) strcpy(p, "/journey.wav"); else snprintf(p, 16, "/box%d.wav", t + 1); }
 static volatile int8_t wantBox = -1;        // set by the LED loop every frame
 static volatile float wantPos = 0.0f;       // seconds into the box
@@ -429,6 +430,7 @@ static bool scanWav(int box) {              // read the header, remember where t
       if (len > 16) f.seek(f.position() + len - 16);
     } else if (!memcmp(ch, "data", 4)) {
       trackData[box] = f.position();
+      trackHdrLen[box] = len;
       trackLen[box] = min(len, (uint32_t)(f.size() - f.position())) & ~1u;
       f.close();
       hasTrack[box] = fmtOk && trackLen[box] > 0;
@@ -547,7 +549,10 @@ void begin() {
   computeCueGains();
   queue = xQueueCreate(16, sizeof(uint8_t));
   fsOk = FFat.begin(true);
-  if (fsOk) { for (int b = 0; b < NTRACK; b++) scanWav(b); }
+  if (fsOk) for (int b = 0; b < NTRACK; b++)
+    if (scanWav(b) && trackLen[b] + 4 < trackHdrLen[b]) {
+      Serial.printf("Music: track %d is cut off (%.1f s stored) - upload it again\n", b + 1, trackSeconds(b));
+    }
   Serial.println(fsOk ? F("Music: flash storage ready") : F("Music: no FATFS partition — choose 16M Flash (3MB APP/9.9MB FATFS)"));
   i2s.setPins(I2S_BCLK, I2S_LRC, I2S_DOUT, -1);
   ok = i2s.begin(I2S_MODE_STD, SR, I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO);
@@ -1914,6 +1919,7 @@ load();
 File audioUpFile;
 int audioUpBox = -1;
 bool audioUpOk = false;
+String audioUpErr;
 
 void handleAudioList() {
   String j = "{\"fs\":" + String(Audio::fsOk ? "true" : "false");
@@ -1936,18 +1942,42 @@ void handleAudioUpload() {
     audioUpBox = server.arg("box").toInt() - 1;
     audioUpOk = false;
     if (!Audio::fsOk || audioUpBox < 0 || audioUpBox >= Audio::NTRACK) { audioUpBox = -1; return; }
+    audioUpErr = "";
     Audio::lockBox = audioUpBox;
     delay(60);                                   // let the audio task let go of the file
+    // 29 Oct: delete the old file of this slot FIRST. Before, the old journey (~6 MB) and the new
+    // upload had to fit side by side in the 9.9 MB storage; when it filled up, writing silently
+    // stopped and the soundtrack was cut off after ~66 s (silent from Box 3 on).
+    char path[16]; Audio::trackPath(audioUpBox, path);
+    FFat.remove("/upload.tmp");
+    FFat.remove(path);
+    Audio::scanWav(audioUpBox);                  // slot is empty now (synth cues) until the upload finishes
     audioUpFile = FFat.open("/upload.tmp", "w");
+    if (!audioUpFile) audioUpErr = "存储打不开";
   } else if (u.status == UPLOAD_FILE_WRITE) {
-    if (audioUpFile) audioUpFile.write(u.buf, u.currentSize);
+    if (audioUpFile && audioUpFile.write(u.buf, u.currentSize) != u.currentSize) {
+      audioUpFile.close();                       // storage full: stop instead of keeping a cut-off file
+      FFat.remove("/upload.tmp");
+      audioUpErr = "ESP32 存储空间不够（先在下面删掉用不到的 Box 音乐再传）";
+    }
   } else if (u.status == UPLOAD_FILE_END) {
-    if (!audioUpFile) return;
+    if (!audioUpFile || audioUpErr.length()) {
+      Audio::lockBox = -1;
+      if (audioUpErr.length()) logLine("音乐上传失败：" + audioUpErr);
+      return;
+    }
     audioUpFile.close();
     char path[16]; Audio::trackPath(audioUpBox, path);
     FFat.remove(path);
     FFat.rename("/upload.tmp", path);
     audioUpOk = Audio::scanWav(audioUpBox);
+    if (audioUpOk && Audio::trackLen[audioUpBox] + 4 < Audio::trackHdrLen[audioUpBox]) {   // arrived incomplete
+      audioUpErr = "文件不完整，只收到 " + String(Audio::trackSeconds(audioUpBox), 1) + " 秒，请重新上传";
+      FFat.remove(path);
+      Audio::scanWav(audioUpBox);
+      audioUpOk = false;
+      logLine("音乐上传失败：" + audioUpErr);
+    }
     Audio::lockBox = -1;
     logLine(String(audioUpBox == Audio::JOURNEY ? "声音：完整旅程" : "音乐：Box " + String(audioUpBox + 1)) + (audioUpOk ? " 已更新（" + String(Audio::trackSeconds(audioUpBox), 1) + " 秒）" : " 文件格式不对"));
     devDirty = true;
@@ -1960,7 +1990,7 @@ void handleAudioUpload() {
 
 void handleAudioUpDone() {
   if (audioUpOk) server.send(200, "text/plain", "OK");
-  else server.send(400, "text/plain", Audio::fsOk ? "文件没收到或格式不对" : "没有存储分区");
+  else server.send(400, "text/plain", !Audio::fsOk ? String("没有存储分区") : audioUpErr.length() ? audioUpErr : String("文件没收到或格式不对"));
 }
 
 void handleAudioDel() {
