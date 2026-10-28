@@ -16,6 +16,7 @@
   const music = [null, null, null, null, null];    // { buf: AudioBuffer, name, sec, from }
   let journeyLoadError = null;
   let mSrc = null, mGain = null, mBox = -1, mStartCtx = 0, mStartPos = 0;
+  let mediaError = "", mediaStarting = false, mediaPlayToken = 0;
   let ui = null;
 
   // Browsers block fetch(file://...) for a page opened directly from a ZIP extraction.
@@ -153,21 +154,73 @@
     return { buf: b, sec, orig: dec.duration };
   };
   const setMusic = async (b, arrayBuffer, name, from) => {
-    const c = await convert(arrayBuffer, b === JOURNEY ? 135 : 60);
+    if (b === JOURNEY) {
+      // The browser's normal media player can play this MP3 even on computers
+      // where Web Audio decoding/resuming fails. Keep the whole file in memory.
+      const url = URL.createObjectURL(new Blob([arrayBuffer], { type: "audio/mpeg" }));
+      const media = new Audio();
+      media.preload = "auto";
+      media.src = url;
+      try {
+        await new Promise((resolve, reject) => {
+          media.onloadedmetadata = resolve;
+          media.onerror = () => reject(new Error("浏览器无法读取完整旅程音乐"));
+          media.load();
+        });
+        if (!Number.isFinite(media.duration) || media.duration <= 0) throw new Error("音乐长度无法读取");
+      } catch (e) { URL.revokeObjectURL(url); throw e; }
+      stopMusic();
+      if (music[b] && music[b].url) URL.revokeObjectURL(music[b].url);
+      music[b] = { media, url, sec: media.duration, orig: media.duration, name, from };
+      journeyLoadError = null; mediaError = "";
+      ex.setTrack(b, 1, media.duration);
+      refreshMusic();
+      return;
+    }
+    const c = await convert(arrayBuffer, 60);
     music[b] = { buf: c.buf, sec: c.sec, orig: c.orig, name, from };
-    if (b === JOURNEY) journeyLoadError = null;
     ex.setTrack(b, 1, c.sec);
     stopMusic(); refreshMusic();
   };
-  const clearMusic = (b) => { music[b] = null; if (ex) ex.setTrack(b, 0, 0); stopMusic(); refreshMusic(); };
+  const clearMusic = (b) => { stopMusic(); if (music[b] && music[b].url) URL.revokeObjectURL(music[b].url); music[b] = null; if (ex) ex.setTrack(b, 0, 0); refreshMusic(); };
   const stopMusic = () => {
-    if (mSrc) { const g = mGain, s = mSrc, t = actx.currentTime; g.gain.setTargetAtTime(0, t, 0.03); s.stop(t + 0.2); }
+    mediaPlayToken++; mediaStarting = false;
+    if (mSrc) { const g = mGain, s = mSrc, t = actx.currentTime; g.gain.setTargetAtTime(0, t, 0.01); s.stop(t + 0.03); }
+    if (music[JOURNEY] && music[JOURNEY].media) music[JOURNEY].media.pause();
     mSrc = null; mBox = -1;
+  };
+  const startMedia = (pos) => {
+    const media = music[JOURNEY] && music[JOURNEY].media;
+    if (!media || !playing || !soundOn || speed !== 1 || pos >= music[JOURNEY].sec) return;
+    media.volume = volume;
+    if (Math.abs(media.currentTime - pos) > 0.75) media.currentTime = pos;
+    const token = ++mediaPlayToken;
+    mediaError = "";
+    const promise = media.play();
+    if (promise) {
+      mediaStarting = true;
+      promise.then(() => { if (token === mediaPlayToken) { mediaStarting = false; mediaError = ""; refreshMusic(); } })
+        .catch(e => { if (token === mediaPlayToken) { mediaStarting = false; mediaError = "浏览器阻止了播放，请再点一次「播放」：" + e.message; refreshMusic(); } });
+    }
+  };
+  const startMediaFromGesture = () => {
+    if (!music[JOURNEY] || !playing || !soundOn || speed !== 1) return;
+    if (mode === "tour") startMedia(T);
+    else if (mode === "focus" && box < JOURNEY_BOXES && T < ex.boxS(box)) startMedia(ex.boxStart(box) + T);
   };
   // the ESP32 plays box b's music from position p while that box is on (main loop: Audio::want)
   const syncMusic = (wb, wp) => {
-    if (!soundOn || !playing || speed !== 1) { if (mSrc) stopMusic(); return; }
-    if (wb < 0 || !music[wb] || wp >= music[wb].sec) { if (mSrc) stopMusic(); return; }
+    if (!soundOn || !playing || speed !== 1) { stopMusic(); return; }
+    if (wb < 0 || !music[wb] || wp >= music[wb].sec) { stopMusic(); return; }
+    if (wb === JOURNEY && music[wb].media) {
+      const media = music[wb].media;
+      media.volume = volume;
+      if (Math.abs(media.currentTime - wp) > 0.75) media.currentTime = wp;
+      if (media.paused && !mediaStarting && !mediaError) startMedia(wp);
+      if (mSrc) { const g = mGain, s = mSrc, t = actx.currentTime; g.gain.setTargetAtTime(0, t, 0.03); s.stop(t + 0.2); mSrc = null; }
+      return;
+    }
+    if (music[JOURNEY] && music[JOURNEY].media) music[JOURNEY].media.pause();
     if (mSrc && mBox === wb) {
       const at = mStartPos + (actx.currentTime - mStartCtx);
       if (Math.abs(at - wp) <= 1) return;
@@ -203,14 +256,18 @@
       if (covers(box)) { if (T < ex.boxS(box)) { wb = JOURNEY; wp = ex.boxStart(box) + T; } }
       else { wb = box; wp = T; }
     }
-    syncMusic(wb, wp);
+    if (!silent) syncMusic(wb, wp);
     draw();
     return alive;
   };
   const tick = () => {
     const now = performance.now();
     if (playing) {
-      T += (now - last) / 1000 * speed;
+      const media = music[JOURNEY] && music[JOURNEY].media;
+      const mediaClock = media && soundOn && speed === 1 &&
+        (mode === "tour" || (mode === "focus" && box < JOURNEY_BOXES && T < ex.boxS(box)));
+      if (mediaClock) T = Math.max(0, media.currentTime - (mode === "focus" ? ex.boxStart(box) : 0));
+      else T += (now - last) / 1000 * speed;
       if (mode === "idle" && T > 60) T -= 60;
     }
     last = now;
@@ -273,6 +330,7 @@
         : covers(b) ? "由「完整旅程」负责（单独播这个盒子时播它对应的那一段）"
         : m ? `${m.name} · 转换后 ${m.sec.toFixed(1)} 秒${m.orig > cap ? "（原来 " + m.orig.toFixed(0) + " 秒，只保留前 " + cap + " 秒）" : ""}${m.sec < ex.boxS(b) ? " · 比盒子短，后面没声音" : ""} → 这个盒子的电子提示音不播`
         : "没有音乐 → 播放程序里的电子提示音";
+      if (b === JOURNEY && mediaError) row.state.textContent += " · " + mediaError;
       row.clear.hidden = !m;
     });
   };
@@ -342,19 +400,19 @@
       if (src && info) src.textContent = `来自程序文件 ${info.source} · 保存于 ${info.saved} · 编号 ${info.md5}`;
       ui.modes.forEach(b => b.addEventListener("click", () => {
         mode = b.dataset.m; box = +(b.dataset.b || 0); ended = false; stopMusic();
-        seek(0); playing = mode !== "test"; last = performance.now(); if (playing) ctx(); updateUi();
+        seek(0); playing = mode !== "test"; last = performance.now(); if (playing) { startMediaFromGesture(); ctx(); } updateUi();
         showBox(mode === "focus" ? box : 0);
       }));
       ui.play.addEventListener("click", () => {
         if (ended) { ended = false; seek(0); }
         playing = !playing; last = performance.now();
-        if (playing) ctx(); else stopMusic();
+        if (playing) { startMediaFromGesture(); ctx(); } else stopMusic();
         updateUi();
       });
-      ui.seek.addEventListener("input", () => { ended = false; stopMusic(); seek(+ui.seek.value); });
+      ui.seek.addEventListener("input", () => { ended = false; stopMusic(); seek(+ui.seek.value); startMediaFromGesture(); });
       $("#simSpeed").addEventListener("change", e => { speed = +e.target.value; stopMusic(); updateUi(); });
-      $("#simSound").addEventListener("change", e => { soundOn = e.target.checked; if (!soundOn) stopMusic(); });
-      $("#simVol").addEventListener("input", e => { volume = +e.target.value; if (out) out.gain.value = volume; });
+      $("#simSound").addEventListener("change", e => { soundOn = e.target.checked; if (!soundOn) stopMusic(); else startMediaFromGesture(); });
+      $("#simVol").addEventListener("input", e => { volume = +e.target.value; if (out) out.gain.value = volume; if (music[JOURNEY] && music[JOURNEY].media) music[JOURNEY].media.volume = volume; });
       root.querySelectorAll("[data-mf]").forEach(inp => inp.addEventListener("change", async () => {
         const f = inp.files[0], b = +inp.dataset.mf; if (!f) return;
         ui.music[b].state.textContent = "转换中…";
@@ -364,7 +422,7 @@
       }));
       root.querySelectorAll("[data-mc]").forEach(btn => btn.addEventListener("click", () => clearMusic(+btn.dataset.mc)));
       root.querySelectorAll("[data-mt]").forEach(btn => btn.addEventListener("click", () => {   // hear this box: start its focus
-        const b = +btn.dataset.mt; if (b === JOURNEY) { mode = "tour"; box = 0; } else { mode = "focus"; box = b; } ended = false; stopMusic(); seek(0); playing = true; last = performance.now(); ctx(); updateUi(); showBox(b === JOURNEY ? 0 : b);
+        const b = +btn.dataset.mt; if (b === JOURNEY) { mode = "tour"; box = 0; } else { mode = "focus"; box = b; } ended = false; stopMusic(); seek(0); playing = true; last = performance.now(); startMediaFromGesture(); ctx(); updateUi(); showBox(b === JOURNEY ? 0 : b);
         root.querySelector(".simbar").scrollIntoView({ block: "start", behavior: "smooth" });
       }));
       refreshMusic();
