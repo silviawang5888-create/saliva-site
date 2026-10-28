@@ -1152,7 +1152,27 @@ void limitSupply(uint16_t from, uint16_t to) {
 // =============================================================================
 //  7) CONTROL PAGE (Wi-Fi access point "Saliva-Control" → http://192.168.4.1)
 // =============================================================================
-WebServer server(80);
+// The stock WebServer serves ONE connection at a time and waits up to 5 s on a connection that has
+// sent nothing yet. Browsers (Safari, Chrome, the Mac "join network" window) open spare "pre-connect"
+// sockets that stay silent, so every status / log / page request queued behind them → the page loaded
+// slowly and stayed on "连接中…". This version drops a silent socket as soon as another one is waiting
+// (or after 1.5 s). Browsers simply retry on a fresh socket.
+class QuickWebServer : public WebServer {
+public:
+  using WebServer::WebServer;
+  void handleClient() override {
+    if (_currentStatus == HC_WAIT_READ && !_currentClient.available()) {
+      const unsigned long idle = millis() - _statusChange;
+      if ((idle > 150 && _server.hasClient()) || idle > 1500) {
+        _currentClient.stop();
+        _currentClient = NetworkClient();
+        _currentStatus = HC_NONE;
+      }
+    }
+    WebServer::handleClient();
+  }
+};
+QuickWebServer server(80);
 
 static const char PAGE[] PROGMEM = R"HTML(<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Saliva 控制台</title>
@@ -1246,7 +1266,7 @@ let rotations=Array(11).fill(0),mirrors=Array(11).fill(0);
 var showOrient=()=>{const p=+g('op').value-1,bridge=[2,5,8].includes(p);for(const o of g('orr').options)o.disabled=bridge&&(o.value==='1'||o.value==='3');g('orr').value=rotations[p];g('orm').value=mirrors[p]};
 var saveOrient=(prefix,value)=>{const p=+g('op').value-1; if(prefix==='pr')rotations[p]=+value;else mirrors[p]=+value;s(prefix+(p+1),value)};
 let first=true;
-var r=()=>{fetch('/api/status').then(x=>x.json()).then(d=>{
+var r=()=>{return fetch('/api/status').then(x=>x.json()).then(d=>{
  if(first){g('mode').value=d.mode;g('bri').value=d.bri;g('vol').value=d.vol;g('mute').checked=d.mute;g('s1').value=d.s1;g('s2').value=d.s2;g('hall').value=d.hallTh;g('lock').value=d.lock;g('slp').value=d.slp;
   if(d.pr&&d.pm){rotations=d.pr;mirrors=d.pm;showOrient()}
   g('remote').checked=d.remote;buttonValues=d.btnOn;renderButtons();first=false}
@@ -1259,8 +1279,8 @@ var r=()=>{fetch('/api/status').then(x=>x.json()).then(d=>{
   g('st').textContent='状态：'+(d.sleep?'省电待机（简单动画；有人按按钮、转盘或用网站就恢复）':d.state)+'\n本地热点 Saliva-Control：'+(d.ap?'开（'+d.apLeft+'）':'关（'+d.apLeft+'）')+'\n'+'\n最近事件：'+d.event+'\n时间：'+d.t.toFixed(1)+' s\n霍尔：'+d.hall+'（静止 '+d.hallBase+'）'+(d.magnet?'  磁铁!':'')+'\n按钮：'+d.btn.map(b=>b?'●':'○').join(' ')+'\n测试图案：'+(d.test?'开':'关')+'\n芯片温度：'+d.temp+' °C'+(d.temp>=75?'  ⚠ 太热':d.temp>=60?'（偏热，正常范围）':'（正常）')+'\n开机：'+d.boot+'，已运行 '+Math.floor(d.up/3600)+' 小时 '+Math.floor(d.up/60%60)+' 分'+'\n上网：'+(d.wifi?'已连上 '+d.ssid+' '+d.ip:'未连上')+'\n云端（观众网站）：'+(d.mqtt?'已连上':'未连上');
  }})
  .catch(()=>{g('st').textContent=lang==='en'?'Cannot connect to ESP32':'连不上 ESP32'})}
-var lg=()=>{fetch('/api/log').then(x=>x.text()).then(t=>{const e=g('log');const end=e.scrollTop+e.clientHeight>=e.scrollHeight-8;e.textContent=t;if(end)e.scrollTop=e.scrollHeight}).catch(()=>{})}
-setLanguage(lang,false);r();lg();setInterval(r,1000);setInterval(lg,3000);
+var lg=()=>{return fetch('/api/log').then(x=>x.text()).then(t=>{const e=g('log');const end=e.scrollTop+e.clientHeight>=e.scrollHeight-8;e.textContent=t;if(end)e.scrollTop=e.scrollHeight}).catch(()=>{})}
+setLanguage(lang,false);var poll=(f,ms)=>{const go=()=>{Promise.race([f(),new Promise(z=>setTimeout(z,6000))]).finally(()=>setTimeout(go,ms))};go()};poll(r,1200);poll(lg,4000);
 </script></body></html>)HTML";
 
 bool mqttConnected();   // defined in the cloud section
@@ -1370,6 +1390,8 @@ volatile uint8_t lastDiscReason = 0;     // Wi-Fi reason code from the router (8
 uint16_t wifiDrops = 0, mqttDrops = 0;
 int lastRssi = 0, dropRssi = 0;
 bool mqttWasUp = false;
+bool cloudOkOnLink = false;   // the cloud has worked at least once since this Wi-Fi connection started
+uint32_t linkUpMs = 0;
 uint32_t liveSlowUntil = 0;
 // ---- radio power: low and cool by default, stronger only when the signal is weak, always low when hot ----
 const int RSSI_WEAK = -75, RSSI_GOOD = -68;     // dBm
@@ -1610,6 +1632,7 @@ void netLoop(uint32_t now) {
   if (!wasConnected) {
     wasConnected = true;
     netFails = 0;
+    cloudOkOnLink = false; linkUpMs = now;
     netNote = "已连上 " + WiFi.SSID();
     configTime(0, 0, "pool.ntp.org", "time.google.com");   // clock for checking developer commands
     Serial.print(F("Wi-Fi: connected to ")); Serial.print(WiFi.SSID());
@@ -1624,7 +1647,19 @@ void netLoop(uint32_t now) {
       lastDrop = "云端断开（Wi-Fi 还连着）：代码 " + String(mqtt.state()) + "，信号 " + String(lastRssi) + " dBm";
       logLine(lastDrop);
     }
-    if (now - lastMqttTry < 15000) return;   // leave time for the local control page between failed cloud attempts
+    // Each failed cloud attempt can hold this task (and so the local page) for several seconds.
+    // While a phone / laptop is on the hotspot, try only once a minute so the control page stays quick.
+    // Connected to Wi-Fi but the cloud never answers (e.g. RMIT-Guest / any network with a browser
+    // login page): after 3 min, move on to the next saved network instead of staying stuck there.
+    if (netCount > 1 && !cloudOkOnLink && now - linkUpMs > 180000) {
+      netNote = WiFi.SSID() + " 连上了但上不了网（可能要网页登录），换下一个";
+      lastWifiTry = now;
+      wasConnected = false;
+      startSchoolWifi();
+      return;
+    }
+    const uint32_t mqttGap = (apOn && WiFi.softAPgetStationNum() > 0) ? 60000 : 15000;
+    if (now - lastMqttTry < mqttGap) return;
     lastMqttTry = now;
     char id[32];
     snprintf(id, sizeof(id), "d2d-esp32-%06lx", (unsigned long)(esp_random() & 0xFFFFFF));
@@ -1636,6 +1671,7 @@ void netLoop(uint32_t now) {
       mqtt.subscribe((String(MQTT_TOPIC) + "/watch").c_str());
       netNote = "云端已连上";
       mqttWasUp = true;
+      cloudOkOnLink = true;
       publishStatus();
       devDirty = true; logPubSeq = 0;
     }
@@ -1704,14 +1740,14 @@ var scan=()=>{g('sc').textContent='扫描中…（约 5 秒，手机可能会短
   g('sc').textContent='找到 '+L.length+' 个，点名字填入';
   g('list').innerHTML=L.map(n=>'<div class="it"><span><b>'+esc(n.s)+'</b> <span class="muted">'+n.r+' dBm'+(n.e?' · 学校登录':n.o?' · 无密码':'')+'</span></span><button class="g" onclick="pick(this.dataset.s,'+(n.e?1:0)+')" data-s="'+esc(n.s)+'">选</button></div>').join('')})
  .catch(()=>{g('sc').textContent='扫描失败，再试一次'})}
-var r=()=>{fetch('/api/net').then(x=>x.json()).then(d=>{
+var r=()=>{return fetch('/api/net').then(x=>x.json()).then(d=>{
  g('st').innerHTML=(d.on?'<span class="ok">● 已连上 '+esc(d.ssid)+'</span>\nIP '+d.ip+'　信号 '+d.rssi+' dBm':'<span class="bad">● 没有连上网络</span>')+
   '\n云端（观众网站）：'+(d.cloud?'<span class="ok">已连上</span>':'<span class="bad">未连上</span>')+'\n'+esc(d.note)+(!d.on&&d.reason?'\n最近断线原因：'+d.reason+' '+esc(d.reasonText):'')+'\nESP32 MAC：'+d.mac+'\n程序版本：'+esc(d.fw);
  g('ks').textContent=d.key?'✓ 已设置密钥（可以远程控制）':'还没设置 → 远程控制台只能看，不能操作';
  g('saved').innerHTML=d.saved.length?d.saved.map((n,i)=>'<div class="it"><span>'+(i+1)+'. <b>'+esc(n.s)+'</b> <span class="muted">'+(n.e?'学校登录 · '+esc(n.u):'普通')+'</span></span><span>'+
   (i?'<button class="g" onclick="post(\'/api/net/first\',\'i='+i+'\')">设为首选</button> ':'')+'<button class="r" onclick="post(\'/api/net/del\',\'i='+i+'\')">删</button></span></div>').join(''):'<div class="muted">还没有。</div>'
 }).catch(()=>{g('st').textContent='连不上 ESP32（手机要连着 Saliva-Control）'})}
-r();setInterval(r,2000);
+var poll=(f,ms)=>{const go=()=>{Promise.race([f(),new Promise(z=>setTimeout(z,6000))]).finally(()=>setTimeout(go,ms))};go()};poll(r,2500);
 </script></body></html>)HTML";
 
 String jsonEsc(const String& in) {
