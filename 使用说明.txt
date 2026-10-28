@@ -1,9 +1,21 @@
-Box 4 手形光效 20% 最终版（2026-10-28）
+网络稳定性修正版（完整 11 灯板主程序）
 
-本包替代之前的 Box 4 更新包，请只用本包。
+已改代码：
+1. Saliva-Control 本地热点始终保留；不再因为外部 Wi-Fi 短暂连上而自动关掉。
+2. 如果热点启动失败，每 3 秒重试一次。
+3. 学校 PEAP 登录使用空的匿名身份；内层用户名仍使用网页里填写的学号。
+4. 云端 TLS 握手最长 5 秒，MQTT 等待最长 5 秒，避免云端故障时堵住本地网页很久。
+5. 本地网络页显示最近断线原因，修正 eduroam 用户名示例，并提醒 RMIT-University 不要填邮箱。
+6. 如 Mac 仍无法加入热点，按住 Box 1 按钮开机可进入配置模式：只开 Saliva-Control，暂停自动尝试学校 Wi-Fi；在本地网络页保存网络后恢复正常联网。下次正常开机无需按住按钮。
+7. 保留此前全部动画、每板校准、Box 4 修正和本地页中英文切换。
 
-Box 4 后板手形光效在 24 秒前保持原亮度，24–27 秒逐渐降低到原亮度的 20%，随后稳定维持 20%，包括整段导览回到 Box 1 的结尾。导览结束时仍遵循现有的整体淡出。Box 4 底板在播放动画时只亮第 4 层前手、第 6 层外壳、第 10 层后手。四个底板在待机时全部熄灭。
+重要：固件不会自动更改 ESP32 里已保存的旧用户名。
+RMIT-University 请在 http://192.168.4.1/wifi 重新保存：类型“学校登录”，用户名只填学号（例如 s1234567），密码重新完整输入。
+eduroam 如需使用，用户名格式是 s1234567@rmit.edu.au。
 
-把 dev.html、sim/anim.js、sim/anim.wasm、sim/anim.json 及 firmware/D2D_Saliva_Box4_Hand20_IdleOff_20261028.bin 按相同目录上传到 GitHub 仓库 saliva-site 根目录。等 GitHub Pages 部署后强制刷新开发者网页，再在“更新程序”中确认地址指向这个新的 .bin，并给 ESP32 无线更新。不要把压缩包或动画师的两板预览 .ino 刷到 11 板主板。
+如果能连接 Saliva-Control：打开 http://192.168.4.1/update ，上传 firmware/D2D_Saliva_NetworkStable_Bilingual_20261028.bin 。
+如果连 Saliva-Control 都会超时：用 USB 连接电脑，在 Arduino IDE 打开 D2D_Saliva_Full_All_Animations/D2D_Saliva_Full_All_Animations.ino；选择 ESP32S3 Dev Module、16 MB Flash、3 MB APP / 9.9 MB FATFS 分区及正确串口，再点“上传”。不要把旧的 RelayFinale 或动画师的 Box 4 单板程序刷到 11 板主板。
 
-模拟器已核对：Box 4 后板 20 秒和 24 秒同亮，25.5 秒处于过渡，27 秒及之后约为原亮度的 20%；整段导览 129 秒仍保持。待机四个底板均为全暗。实体灯板仍需现场核对。
+如要用 GitHub 开发者页远程更新：把本包 dev.html、dev-i18n.js 放到 saliva-site 仓库根目录，把 firmware/ 中的新 bin 放到仓库 firmware/ 目录。上传后确认控制台“更新程序”显示新的 bin 文件名。
+
+已通过网页脚本语法检查和 Arduino 编译；尚未在实体主板测试。即使代码修正，ESP32 同时连校园 Wi-Fi 与发自己的热点时仍共用同一无线电，外部 Wi-Fi 换频道可能让已连热点的电脑短暂重连。若最新固件仍出现 Mac 连接超时，请记录发生时间及本地日志的“最近断线原因”。

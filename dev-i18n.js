@@ -140,11 +140,9 @@
     "→ 扫描 → 选网络 → 输密码 → 保存。": "→ Scan → choose network → password → Save.", "（密码 ": " (password ",
     "到新场地前，可以先把那里的 Wi-Fi 或者手机热点加好，最多存 3 个，会按顺序自动试。":
       "Before moving to a new venue, add its Wi-Fi or a phone hotspot first — up to 3 are saved and tried in order.",
-    "本地热点 Saliva-Control": "Local hotspot Saliva-Control", "开着": "on", "关着（省电）": "off (power saving)",
-    "为了省电和降温，连上网 10 分钟后热点会自动关掉（电脑/手机连它时才需要）。没连上网时它一直开着。":
-      "To save power and heat, the hotspot switches off 10 minutes after the internet connects (it is only needed to connect a computer/phone). Without internet it stays on.",
-    "要用的时候：点下面的按钮，或者在现场": "When you need it: press the button below, or on site", "快速连按按钮 1 三下": "press button 1 three times quickly",
-    "（会“嘀”一声），热点开 10 分钟。": " (it beeps); the hotspot opens for 10 minutes.", "打开本地热点 10 分钟": "Open the local hotspot for 10 minutes",
+    "本地热点 Saliva-Control": "Local hotspot Saliva-Control", "开着": "on", "正在重试启动": "retrying startup",
+    "新版固件会持续开启本地热点，方便现场连接和排查网络。主板同时连接学校 Wi-Fi 时，两个连接共用同一无线电；切换外部网络可能让热点短暂中断。":
+      "The new firmware keeps the local hotspot on for on-site control and network troubleshooting. The hotspot and campus Wi-Fi share one radio, so changing the external network may briefly interrupt the hotspot.",
     // ---- simulator ----
     "不用连 ESP32": "no ESP32 needed",
     "用的是程序文件里同一份动画代码（编译成网页能跑的版本），每秒 10 帧，和装置一样。现场离线、或者上传新程序前，都可以在这里先看动画、听声音。":

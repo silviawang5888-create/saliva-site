@@ -217,10 +217,8 @@
   </div>
   <div class="card">
     <h2>本地热点 Saliva-Control</h2>
-    <div class="muted">为了省电和降温，连上网 10 分钟后热点会自动关掉（电脑/手机连它时才需要）。没连上网时它一直开着。<br>
-    要用的时候：点下面的按钮，或者在现场<b>快速连按按钮 1 三下</b>（会“嘀”一声），热点开 10 分钟。</div>
+    <div class="muted">新版固件会持续开启本地热点，方便现场连接和排查网络。主板同时连接学校 Wi-Fi 时，两个连接共用同一无线电；切换外部网络可能让热点短暂中断。</div>
     <div id="apState" class="muted"></div>
-    <button class="g" data-c="ap">打开本地热点 10 分钟</button>
   </div>
   <div class="card">
     <h2>加一个新网络</h2>
@@ -259,7 +257,7 @@
     <dl class="kv"><dt>现在的版本</dt><dd id="fwNow">-</dd></dl>
     <ol class="muted" style="margin:0;padding-left:20px">
       <li>Arduino IDE：Sketch → Export Compiled Binary。</li>
-      <li>把本次的 <code>D2D_Saliva_Box4_Hand20_IdleOff_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
+      <li>把本次的 <code>D2D_Saliva_NetworkStable_Bilingual_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
       <li>点下面的按钮。灯会关 30–90 秒，成功后版本号会变成新的编译时间。</li>
     </ol>
     <label>程序链接（https，以 .bin 结尾）<input id="otaUrl" autocapitalize="off" autocorrect="off"></label>
@@ -490,7 +488,7 @@ panelTestLimits();
 $("logRefresh").onclick = () => send("log");
 $("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
 $("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
-if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_Box4_Hand20_IdleOff_20261028.bin", location.href).href;
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_NetworkStable_Bilingual_20261028.bin", location.href).href;
 else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
 $("otaGo").onclick = () => {
   const u = $("otaUrl").value.trim();
@@ -548,7 +546,7 @@ function paint() {
   const state = (ST[d.state] || d.state) + (d.state === "focus" ? " Box " + d.box : "");
   $("ovKv").innerHTML =
     `<dt>状态</dt><dd>${d.sleep ? "省电待机（简单动画，有人互动就恢复）" : esc(state)}${d.test ? "（测试图案）" : ""}</dd>` +
-    `<dt>本地热点</dt><dd>${d.ap ? "开" : "关（省电）"}</dd>` +
+    `<dt>本地热点</dt><dd>${d.ap ? "开" : "正在重试启动"}</dd>` +
     `<dt>最近事件</dt><dd>${esc(d.event)}</dd>` +
     `<dt>网络</dt><dd>${d.ssid ? esc(d.ssid) + " · " + d.rssi + " dBm" + (d.rssi > -67 ? "（好）" : d.rssi > -78 ? "（一般）" : "（弱，容易掉线）") : "未连上"}</dd>` +
     `<dt>已运行</dt><dd>${fmtUp(d.up)}（上次开机：${esc(d.boot)}）</dd>` +
