@@ -1458,6 +1458,9 @@ void connectNet(int i) {
   if (i != netTry) netFails = 0;
   netTry = i;
   const NetCfg& n = nets[i];
+  // Full scan finds the strongest RMIT access point, but takes the radio off the hotspot channel for
+  // ~2 s. While a phone is using the hotspot, use the quick scan so the control page keeps working.
+  WiFi.setScanMethod(apOn && WiFi.softAPgetStationNum() > 0 ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
   WiFi.disconnect(false);
   delay(50);
   Serial.print(F("Wi-Fi: trying ")); Serial.println(n.ssid);
@@ -1589,7 +1592,10 @@ void netLoop(uint32_t now) {
     // network twice before moving on (the old 20 s / move-on-at-once rule cut slow logins short
     // and kept hopping away from RMIT-University to the other saved networks).
     const bool cur = netTry >= 0 && netTry < netCount;
-    const uint32_t timeout = (cur && nets[netTry].ent) ? 30000 : 20000;
+    uint32_t timeout = (cur && nets[netTry].ent) ? 30000 : 20000;
+    // Someone is on the hotspot (e.g. fixing the Wi-Fi settings): every reconnect attempt makes the radio
+    // leave the hotspot's channel to search, and the phone's page stops loading. Try much less often.
+    if (apOn && WiFi.softAPgetStationNum() > 0) timeout = 90000;
     if (netCount && now - lastWifiTry > timeout) {
       if (cur && netCount > 1 && netFails >= 1) {
         netNote = nets[netTry].ssid + " 两次没连上，换下一个";
@@ -2281,7 +2287,7 @@ String apStatusText(bool en) {
 void handleNotFound() {
   const String host = server.hostHeader();
   const String ap = WiFi.softAPIP().toString();
-  if (host != ap && host != WiFi.localIP().toString()) {
+  if (apOn && host != ap && host != WiFi.localIP().toString()) {   // hotspot off → no captive redirect
     server.sendHeader("Location", "http://" + ap + "/", true);
     server.send(302, "text/plain", "");
   } else {
