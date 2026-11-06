@@ -32,7 +32,7 @@
     };
     if (window.D2D_JOURNEY_B64) return decode();
     const script = document.createElement("script");
-    script.src = base + "audio/journey-inline.js?v=20261028-levelled";
+    script.src = base + "audio/journey-inline.js?v=20261028-usermix132";
     script.onload = decode;
     script.onerror = () => reject(new Error("找不到本地预览音乐 audio/journey-inline.js"));
     document.head.appendChild(script);
@@ -73,7 +73,7 @@
         if (b === JOURNEY && window.location.protocol === "file:") {
           await setMusic(b, await loadLocalJourney(base), "本地包里的 audio/" + f, "site");
         } else {
-          const r = await fetch(base + "audio/" + f + (b === JOURNEY ? "?v=20261028-levelled" : ""));
+          const r = await fetch(base + "audio/" + f + (b === JOURNEY ? "?v=20261028-usermix132" : ""));
           if (r.ok) await setMusic(b, await r.arrayBuffer(), "网站上的 audio/" + f, "site");
         }
       } catch (e) { if (b === JOURNEY) journeyLoadError = e.message || String(e); }

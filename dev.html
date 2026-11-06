@@ -180,6 +180,21 @@
     <button id="calApply" disabled>将文件里的设置恢复到 ESP32</button>
   </div>
   <div class="card">
+    <h2>自动播放 <span class="muted" style="font-weight:400">（装置放进柜子后用；设置存在 ESP32 里，断网也照常循环）</span></h2>
+    <label class="line" style="justify-content:flex-start"><input type="checkbox" id="aOn"> 自动循环播放完整旅程</label>
+    <label>每两遍之间的待机时间（秒）<input type="number" id="aGap" min="5" max="1800" step="5"></label>
+    <label class="line">自动播放时的音量（0 = 静音） <input type="range" id="aVol" min="0" max="100"><span id="vAVol" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
+    <div class="muted">观众点播（观众网站或按钮）用下面「设置」里的总音量。自动播放到一半时观众点「完整旅程」，会从头用正常音量重播。</div>
+    <label class="line" style="justify-content:flex-start"><input type="checkbox" id="aHrs"> 只在开放时间播放</label>
+    <div class="row">
+      <label style="flex:1;min-width:110px">开始（几点）<input type="number" id="aOh" min="0" max="23"></label>
+      <label style="flex:1;min-width:110px">结束（几点）<input type="number" id="aCh" min="0" max="24"></label>
+      <label style="flex:2;min-width:180px">开放时间以外<select id="aCm"><option value="0">只亮暗的待机动画</option><option value="1">灯全关</option></select></label>
+    </div>
+    <div class="muted">开放时间按墨尔本时间（含夏令时）。ESP32 开机后要连上一次网才知道几点；一直没连上网时不分时间，一直循环。开放时间以外观众点播仍然会播，播完回到暗的状态。</div>
+    <div class="muted" id="aNote">等 ESP32…</div>
+  </div>
+  <div class="card">
     <h2>设置 <span class="muted" style="font-weight:400">（改了就发送，ESP32 会保存）</span></h2>
     <label>模式<select id="sMode"><option value="0">自动（传感器、按钮、观众网站有效）</option><option value="1">手动（只用控制台）</option><option value="2">一直待机</option></select></label>
     <label class="line">亮度 <input type="range" id="sBri" min="20" max="255"><span id="vBri" style="min-width:32px;text-align:right;font-family:var(--mono)"></span></label>
@@ -213,11 +228,11 @@
   <div class="card">
     <h2>已保存的网络</h2>
     <div id="saved" class="muted">还没收到</div>
-    <div class="muted">“切换”会让 ESP32 先试那个网络，云端会断开十几秒。连不上的话，20 秒后它会自己换回其他已保存的网络。</div>
+    <div class="muted">“切换”会让 ESP32 先试那个网络，云端会断开十几秒。连不上的话，同一个网络会再试一次（学校登录每次最多 30 秒），之后换回其他已保存的网络。</div>
   </div>
   <div class="card">
     <h2>本地热点 Saliva-Control</h2>
-    <div class="muted">新版固件会持续开启本地热点，方便现场连接和排查网络。主板同时连接学校 Wi-Fi 时，两个连接共用同一无线电；切换外部网络可能让热点短暂中断。</div>
+    <div class="muted">热点和学校 Wi-Fi 共用同一个无线电，所以新版固件的热点是自动的：开机后开 10 分钟；学校网断开 30 秒会自己打开；连按 Box 1 三次也会打开；有设备连着时不会关；学校网稳定 1 分钟后自动关闭，让学校网更稳。热点关着时，用学校网里 ESP32 的 IP 或这个网站控制。</div>
     <div id="apState" class="muted"></div>
   </div>
   <div class="card">
@@ -257,7 +272,7 @@
     <dl class="kv"><dt>现在的版本</dt><dd id="fwNow">-</dd></dl>
     <ol class="muted" style="margin:0;padding-left:20px">
       <li>Arduino IDE：Sketch → Export Compiled Binary。</li>
-      <li>把本次的 <code>D2D_Saliva_VisitorSync_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
+      <li>把本次的 <code>D2D_Saliva_NetStable_20261028.bin</code> 上传到网站仓库的 <code>firmware/</code> 文件夹，等 GitHub Pages 部署完成。</li>
       <li>点下面的按钮。灯会关 30–90 秒，成功后版本号会变成新的编译时间。</li>
     </ol>
     <label>程序链接（https，以 .bin 结尾）<input id="otaUrl" autocapitalize="off" autocorrect="off"></label>
@@ -272,11 +287,11 @@
 </div>
 <div id="toast"></div>
 
-<script src="dev-i18n.js?v=20261028-v8"></script>
+<script src="dev-i18n.js?v=20261103-auto"></script>
 <script src="live.js?v=d9affb1f"></script>
 <script src="sim/anim.js?v=a5fbfe99" onerror="void 0"></script>
 <script src="sim.js?v=20261028-sync"></script>
-<script src="exhibit-audio.js?v=20261028-levelled-media-audio"></script>
+<script src="exhibit-audio.js?v=20261028-usermix132-media-audio"></script>
 <script>
 // load the MQTT library without blocking the page (no internet → the page still shows)
 const loadMqtt = () => new Promise(res => {
@@ -468,6 +483,22 @@ $("sHall").onchange = e => setOne("hall", e.target.value);
 $("sLock").onchange = e => setOne("lock", e.target.value);
 $("sSlp").onchange = e => setOne("slp", e.target.value);
 $("sRemote").onchange = e => setOne("remote", e.target.checked ? 1 : 0);
+// autoplay
+$("aOn").onchange = e => setOne("auto", e.target.checked ? 1 : 0);
+$("aGap").onchange = e => setOne("gap", Math.max(5, Math.min(1800, +e.target.value || 30)));
+$("aVol").oninput = e => $("vAVol").textContent = e.target.value;
+$("aVol").onchange = e => setOne("avol", e.target.value);
+$("aHrs").onchange = e => setOne("hrs", e.target.checked ? 1 : 0);
+$("aOh").onchange = e => setOne("oh", Math.max(0, Math.min(23, +e.target.value || 0)));
+$("aCh").onchange = e => setOne("ch", Math.max(0, Math.min(24, +e.target.value || 0)));
+$("aCm").onchange = e => setOne("cm", e.target.value);
+function autoText(d) {
+  if (!d.cfg || d.cfg.auto === undefined) return "需要安装含自动播放功能的新固件。";
+  const clock = d.clock ? "现在 " + d.clock : "时钟还没对准（没连过网）";
+  const open = !d.cfg.hrs ? "不分时间" : d.open ? "开放时间内" : "开放时间外";
+  const st = !d.cfg.auto ? "自动播放关着" : d.autoNow ? "正在自动播放" : d.next >= 0 ? d.next + " 秒后自动播放" : "现在不会自动播放";
+  return clock + " · " + open + " · " + st;
+}
 const panelTestLimits = () => {
   const number = +$('pPanel').value, bridge = [3, 6, 9].includes(number), axis = +$('pAxis').value;
   for (const r of $('pRot').options) r.disabled = bridge && (r.value === '1' || r.value === '3');
@@ -488,7 +519,7 @@ panelTestLimits();
 $("logRefresh").onclick = () => send("log");
 $("logCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(logText).then(() => toast("日志已复制", true)); };
 $("restart").onclick = () => { if (confirm("重启 ESP32？灯会黑几秒")) send("restart"); };
-if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_VisitorSync_20261028.bin", location.href).href;
+if (location.href.startsWith("http")) $("otaUrl").value = new URL("firmware/D2D_Saliva_NetStable_20261028.bin", location.href).href;
 else $("otaUrl").placeholder = "网站上传到 GitHub 后会自动填好（现在是在电脑上直接打开的文件）";
 $("otaGo").onclick = () => {
   const u = $("otaUrl").value.trim();
@@ -546,8 +577,9 @@ function paint() {
   const state = (ST[d.state] || d.state) + (d.state === "focus" ? " Box " + d.box : "");
   $("ovKv").innerHTML =
     `<dt>状态</dt><dd>${d.sleep ? "省电待机（简单动画，有人互动就恢复）" : esc(state)}${d.test ? "（测试图案）" : ""}</dd>` +
-    `<dt>本地热点</dt><dd>${d.ap ? "开" : "正在重试启动"}</dd>` +
+    `<dt>本地热点</dt><dd>${d.ap ? "开" : "关（学校网稳定时自动关闭）"}</dd>` +
     `<dt>最近事件</dt><dd>${esc(d.event)}</dd>` +
+    `<dt>自动播放</dt><dd>${esc(autoText(d))}</dd>` +
     `<dt>网络</dt><dd>${d.ssid ? esc(d.ssid) + " · " + d.rssi + " dBm" + (d.rssi > -67 ? "（好）" : d.rssi > -78 ? "（一般）" : "（弱，容易掉线）") : "未连上"}</dd>` +
     `<dt>已运行</dt><dd>${fmtUp(d.up)}（上次开机：${esc(d.boot)}）</dd>` +
     (d.drops ? `<dt>掉线次数</dt><dd>Wi-Fi ${d.drops.w} 次 · 云端 ${d.drops.m} 次（这次开机以来）<br><span class="muted">${esc(d.drops.last)}</span></dd>` : "") +
@@ -572,7 +604,8 @@ function paint() {
   const ip = d.ip && d.ip !== "-" ? d.ip : "192.168.4.1";
   $("audioLink").href = "http://" + ip + "/audio";
   $("audioIp").textContent = "http://" + ip + "/audio";
-  $("apState").textContent = "现在：" + (d.ap ? "开着" : "关着（省电）");
+  $("aNote").textContent = autoText(d);
+  $("apState").textContent = "现在：" + (d.ap ? "开着" : "关着（学校网稳定时自动关闭；断网 30 秒或连按 Box 1 三次会打开）");
   if (!cfgFilled && d.cfg) {
     const c = d.cfg;
     $("sMode").value = c.mode; $("sBri").value = c.bri; $("vBri").textContent = c.bri; $("sVol").value = c.vol; $("vVol").textContent = c.vol;
@@ -590,6 +623,12 @@ function paint() {
     $('pRot').disabled = $('pMirror').disabled = $('pReset').disabled = !orientationReady;
     if (orientationReady) { orientationRot = c.pr.slice(); orientationMirror = c.pm.slice(); panelTestLimits(); }
     $("sS1").value = c.s1; $("vS1").textContent = c.s1; $("sS2").value = c.s2; $("vS2").textContent = c.s2;
+    const autoReady = c.auto !== undefined;
+    for (const id of ["aOn", "aGap", "aVol", "aHrs", "aOh", "aCh", "aCm"]) $(id).disabled = !autoReady;
+    if (autoReady) {
+      $("aOn").checked = !!c.auto; $("aGap").value = c.gap; $("aVol").value = c.avol; $("vAVol").textContent = c.avol;
+      $("aHrs").checked = !!c.hrs; $("aOh").value = c.oh; $("aCh").value = c.ch; $("aCm").value = c.cm;
+    }
     $("sHall").value = c.hall; $("sLock").value = c.lock; $("sSlp").value = c.slp ?? 10; $("sRemote").checked = !!c.remote;
     $("sBtns").innerHTML = c.btn.map((v, i) => `<label class="line" style="justify-content:flex-start"><input type="checkbox" ${v ? "checked" : ""} onchange="send('set','b${i + 1}='+(this.checked?1:0))"> 按钮 ${i + 1}</label>`).join("");
     cfgFilled = true;

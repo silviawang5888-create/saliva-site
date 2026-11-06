@@ -5,6 +5,20 @@
    To add a phrase: put "中文": "English" in EN below. Longer phrases are replaced first. */
 (function () {
   const EN = {
+    // ---- autoplay ----
+    "自动播放": "Autoplay",
+    "（装置放进柜子后用；设置存在 ESP32 里，断网也照常循环）": "(for when the installation is in the cabinet; saved on the ESP32, keeps looping without internet)",
+    "自动循环播放完整旅程": "Loop the whole journey automatically",
+    "每两遍之间的待机时间（秒）": "Idle time between two journeys (seconds)",
+    "自动播放时的音量（0 = 静音）": "Volume while autoplaying (0 = silent)",
+    "观众点播（观众网站或按钮）用下面「设置」里的总音量。自动播放到一半时观众点「完整旅程」，会从头用正常音量重播。": "Visitor requests (website or buttons) use the total volume in Settings below. If a visitor taps “Whole journey” during an autoplay, it restarts from the beginning at normal volume.",
+    "只在开放时间播放": "Only during opening hours", "开始（几点）": "Opens (hour)", "结束（几点）": "Closes (hour)",
+    "开放时间以外": "Outside opening hours", "只亮暗的待机动画": "Dim idle animation only", "灯全关": "All LEDs off",
+    "开放时间按墨尔本时间（含夏令时）。ESP32 开机后要连上一次网才知道几点；一直没连上网时不分时间，一直循环。开放时间以外观众点播仍然会播，播完回到暗的状态。": "Opening hours use Melbourne time (daylight saving included). The ESP32 needs to be online once after power-on to know the time; until then it loops at any hour. Outside opening hours visitor requests still play, then it goes dark again.",
+    "需要安装含自动播放功能的新固件。": "Needs the new firmware with autoplay.",
+    "时钟还没对准（没连过网）": "clock not set yet (not online since power-on)", "现在 ": "now ",
+    "不分时间": "any hour", "开放时间内": "open", "开放时间外": "closed",
+    "自动播放关着": "autoplay off", "正在自动播放": "autoplaying now", " 秒后自动播放": " s until autoplay", "现在不会自动播放": "no autoplay right now",
     // ---- header / tabs ----
     "开发者控制台": "Developer console", "连接云端…": "Connecting to the cloud…", "云端已连上": "Cloud connected",
     "云端未连上": "Cloud not connected", "库没加载（没网？）": "library not loaded (no internet?)",
@@ -132,17 +146,18 @@
     // ---- network ----
     "现在的网络": "Current network", "信号": "Signal", "已保存的网络": "Saved networks", "没有保存的网络": "No saved networks",
     "学校登录": "school login", "普通": "normal", "· 正在用": "· in use", "切换": "Switch",
-    "“切换”会让 ESP32 先试那个网络，云端会断开十几秒。连不上的话，20 秒后它会自己换回其他已保存的网络。":
-      "“Switch” makes the ESP32 try that network first; the cloud drops for about 15 s. If it can't connect, it goes back to the other saved networks after 20 s.",
+    "“切换”会让 ESP32 先试那个网络，云端会断开十几秒。连不上的话，同一个网络会再试一次（学校登录每次最多 30 秒），之后换回其他已保存的网络。":
+      "“Switch” makes the ESP32 try that network first; the cloud drops for about 15 s. If it can't connect, it tries the same network once more (school login up to 30 s each time), then goes back to the other saved networks.",
     "从 ESP32 删除这个网络？": "Delete this network from the ESP32?", "加一个新网络": "Add a new network",
     "新网络要输入密码，所以只能在现场加（密码不经过云端）：": "A new network needs its password, so it can only be added on site (passwords never go through the cloud):",
     "手机连 Wi-Fi": "Phone → Wi-Fi", "），控制台会自己弹出来；没弹出就打开": "), the control page pops up; if not, open",
     "→ 扫描 → 选网络 → 输密码 → 保存。": "→ Scan → choose network → password → Save.", "（密码 ": " (password ",
     "到新场地前，可以先把那里的 Wi-Fi 或者手机热点加好，最多存 3 个，会按顺序自动试。":
       "Before moving to a new venue, add its Wi-Fi or a phone hotspot first — up to 3 are saved and tried in order.",
-    "本地热点 Saliva-Control": "Local hotspot Saliva-Control", "开着": "on", "正在重试启动": "retrying startup",
-    "新版固件会持续开启本地热点，方便现场连接和排查网络。主板同时连接学校 Wi-Fi 时，两个连接共用同一无线电；切换外部网络可能让热点短暂中断。":
-      "The new firmware keeps the local hotspot on for on-site control and network troubleshooting. The hotspot and campus Wi-Fi share one radio, so changing the external network may briefly interrupt the hotspot.",
+    "本地热点 Saliva-Control": "Local hotspot Saliva-Control", "开着": "on", "正在重试启动": "retrying startup", "关（学校网稳定时自动关闭）": "off (switches off while school Wi-Fi is steady)",
+    "关着（学校网稳定时自动关闭；断网 30 秒或连按 Box 1 三次会打开）": "off (while school Wi-Fi is steady; opens after 30 s offline or three presses of Box 1)",
+    "热点和学校 Wi-Fi 共用同一个无线电，所以新版固件的热点是自动的：开机后开 10 分钟；学校网断开 30 秒会自己打开；连按 Box 1 三次也会打开；有设备连着时不会关；学校网稳定 1 分钟后自动关闭，让学校网更稳。热点关着时，用学校网里 ESP32 的 IP 或这个网站控制。":
+      "The hotspot and the school Wi-Fi share one radio, so the new firmware runs the hotspot automatically: on for 10 minutes after power-on, on by itself after 30 s without school Wi-Fi, on after three quick presses of Box 1, never off while a device is connected, and off once school Wi-Fi has been steady for 1 minute so the school link stays stable. While it is off, use the ESP32's school IP or this website.",
     // ---- simulator ----
     "不用连 ESP32": "no ESP32 needed",
     "用的是程序文件里同一份动画代码（编译成网页能跑的版本），每秒 10 帧，和装置一样。现场离线、或者上传新程序前，都可以在这里先看动画、听声音。":

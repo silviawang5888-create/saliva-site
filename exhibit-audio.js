@@ -2,7 +2,7 @@
    Download the whole MP3 first. The operator's click starts its normal browser
    player silently; live ESP32 status selects the audible position. */
 window.D2DExhibitAudio = (() => {
-  const FILE = "audio/journey.mp3?v=20261028-levelled";
+  const FILE = "audio/journey.mp3?v=20261028-usermix132";
   let media = null, mediaUrl = "", loading = false, ready = false, error = "";
   let enabled = false, primed = false, playing = false, seeking = false;
   let ref = null, scene = "", seekToken = 0;
@@ -16,7 +16,7 @@ window.D2DExhibitAudio = (() => {
   const localBase64 = () => new Promise((resolve, reject) => {
     if (window.D2D_JOURNEY_B64) return resolve(window.D2D_JOURNEY_B64);
     const script = document.createElement("script");
-    script.src = "audio/journey-inline.js?v=20261028-levelled";
+    script.src = "audio/journey-inline.js?v=20261028-usermix132";
     script.onload = () => window.D2D_JOURNEY_B64 ? resolve(window.D2D_JOURNEY_B64) : reject(new Error("Local music missing"));
     script.onerror = () => reject(new Error("Local music missing"));
     document.head.appendChild(script);
@@ -33,7 +33,7 @@ window.D2DExhibitAudio = (() => {
         bytes = data.buffer;
       } else {
         let cache = null, response = null;
-        try { if ("caches" in window) { cache = await caches.open("d2d-fixed-audio-v20261028-levelled"); response = await cache.match(FILE); } } catch (e) {}
+        try { if ("caches" in window) { cache = await caches.open("d2d-fixed-audio-v20261028-usermix132"); response = await cache.match(FILE); } } catch (e) {}
         if (!response) {
           response = await fetch(FILE, { cache: "force-cache" });
           if (!response.ok) throw new Error("Music download failed");
