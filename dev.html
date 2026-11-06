@@ -149,7 +149,7 @@
       <option value="1">1 · Box 1 底板 16×16</option><option value="2">2 · Box 1 后板 16×16</option>
       <option value="3">3 · 光桥 1 8×32</option><option value="4">4 · Box 2 后板 16×16</option>
       <option value="5">5 · Box 2 底板 16×16</option><option value="6">6 · 光桥 2 8×32</option>
-      <option value="7">7 · Box 3 后板 16×16</option><option value="8">8 · Box 3 底板 16×16</option>
+      <option value="7">7 · Box 3 底板 16×16</option><option value="8">8 · Box 3 后板 16×16</option>
       <option value="9">9 · 光桥 3 8×32</option><option value="10">10 · Box 4 后板 16×16</option>
       <option value="11">11 · Box 4 底板 16×16</option>
     </select></label>
@@ -403,7 +403,7 @@ $('sVisitorAudio').onchange = e => {
   if (e.target.checked && showAudioWanted) { e.target.checked = false; toast('先关闭中央 JBL，再开放观众手机听音', false); return; }
   setOne('va', e.target.checked ? 1 : 0);
 };
-const PANEL_NAMES = ["Box 1 底板", "Box 1 后板", "光桥 1", "Box 2 后板", "Box 2 底板", "光桥 2", "Box 3 后板", "Box 3 底板", "光桥 3", "Box 4 后板", "Box 4 底板"];
+const PANEL_NAMES = ["Box 1 底板", "Box 1 后板", "光桥 1", "Box 2 后板", "Box 2 底板", "光桥 2", "Box 3 底板", "Box 3 后板", "光桥 3", "Box 4 后板", "Box 4 底板"];
 $('pAxis').value = '0';
 $('pAxis').querySelector('option[value="3"]').disabled = true;
 let orientationReady = false, orientationRot = Array(11).fill(0), orientationMirror = Array(11).fill(0);
