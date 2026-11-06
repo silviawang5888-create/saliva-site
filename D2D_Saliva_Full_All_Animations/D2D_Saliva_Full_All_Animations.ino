@@ -604,7 +604,15 @@ struct Settings {
   bool    buttonOn[4] = { true, true, true, true };
   bool    remoteOn = true;      // visitor website can request boxes
   bool    visitorAudioOn = false; // safe exhibition default; enable later for personal listening in the lab foyer
+  // ---- autoplay (installation inside a cabinet: nobody can reach the Hall disc) ----
+  bool    autoOn = true;        // play the whole journey by itself
+  uint16_t autoGapS = 30;       // seconds of idle animation between two journeys (5–1800)
+  uint8_t autoVol = 40;         // volume while autoplaying, 0–100 (0 = silent); visitors' requests use "volume"
+  bool    hoursOn = true;       // only autoplay during opening hours (needs the clock from the internet)
+  uint8_t openH = 9, closeH = 20;   // opening hours, Melbourne time: 9:00–20:00
+  uint8_t closedMode = 0;       // outside opening hours: 0 = dim idle animation, 1 = all LEDs off
 } cfg;
+volatile bool autoTour = false;   // the tour now playing was started by autoplay (uses autoVol)
 Preferences prefs;
 
 void loadSettings() {
@@ -630,6 +638,13 @@ void loadSettings() {
   for (int i = 0; i < 4; i++) { char k[4] = { 'b', (char)('1' + i), 0 }; cfg.buttonOn[i] = prefs.getBool(k, cfg.buttonOn[i]); }
   cfg.remoteOn = prefs.getBool("remote", cfg.remoteOn);
   cfg.visitorAudioOn = prefs.getBool("vAudio", cfg.visitorAudioOn);
+  cfg.autoOn = prefs.getBool("auto", cfg.autoOn);
+  cfg.autoGapS = constrain((int)prefs.getUShort("gap", cfg.autoGapS), 5, 1800);
+  cfg.autoVol = min((int)prefs.getUChar("avol", cfg.autoVol), 100);
+  cfg.hoursOn = prefs.getBool("hrs", cfg.hoursOn);
+  cfg.openH = min((int)prefs.getUChar("oh", cfg.openH), 23);
+  cfg.closeH = min((int)prefs.getUChar("ch", cfg.closeH), 24);
+  cfg.closedMode = prefs.getUChar("cm", cfg.closedMode) ? 1 : 0;
   prefs.end();
 }
 void saveSettings() {
@@ -654,15 +669,42 @@ void saveSettings() {
   for (int i = 0; i < 4; i++) { char k[4] = { 'b', (char)('1' + i), 0 }; prefs.putBool(k, cfg.buttonOn[i]); }
   prefs.putBool("remote", cfg.remoteOn);
   prefs.putBool("vAudio", cfg.visitorAudioOn);
+  prefs.putBool("auto", cfg.autoOn);
+  prefs.putUShort("gap", cfg.autoGapS);
+  prefs.putUChar("avol", cfg.autoVol);
+  prefs.putBool("hrs", cfg.hoursOn);
+  prefs.putUChar("oh", cfg.openH);
+  prefs.putUChar("ch", cfg.closeH);
+  prefs.putUChar("cm", cfg.closedMode);
   prefs.end();
 }
 void applySettings() {
   FastLED.setBrightness(cfg.brightness);
   // total volume 0–100 → level between MIN_LEVEL and MAX_LEVEL; cfg.mute silences both outputs
-  Audio::masterVol = (Audio::MIN_LEVEL + (Audio::MAX_LEVEL - Audio::MIN_LEVEL) * cfg.volume / 100.0f) / Audio::MAX_LEVEL;
-  Audio::spkVol[0] = cfg.mute ? 0.0f : (Audio::USE_SPEAKER2 ? cfg.spk1 / 100.0f : 1.0f);
-  Audio::spkVol[1] = cfg.mute ? 0.0f : (Audio::USE_SPEAKER2 ? cfg.spk2 / 100.0f : 0.0f);
+  // an autoplayed journey uses its own volume (0 = silent), so the lab is not woken up every few minutes
+  const uint8_t v = autoTour ? cfg.autoVol : cfg.volume;
+  const bool silent = cfg.mute || (autoTour && cfg.autoVol == 0);
+  Audio::masterVol = (Audio::MIN_LEVEL + (Audio::MAX_LEVEL - Audio::MIN_LEVEL) * v / 100.0f) / Audio::MAX_LEVEL;
+  Audio::spkVol[0] = silent ? 0.0f : (Audio::USE_SPEAKER2 ? cfg.spk1 / 100.0f : 1.0f);
+  Audio::spkVol[1] = silent ? 0.0f : (Audio::USE_SPEAKER2 ? cfg.spk2 / 100.0f : 0.0f);
 }
+
+// ---- opening hours (Melbourne time, daylight saving included) ----
+const char* TZ_MELBOURNE = "AEST-10AEDT,M10.1.0,M4.1.0/3";
+bool clockOk() { return time(nullptr) > 1700000000; }
+bool isOpenNow() {                         // no clock yet (never online since power-on) → treat as open
+  if (!cfg.hoursOn || !clockOk()) return true;
+  const time_t t = time(nullptr); struct tm lt; localtime_r(&t, &lt);
+  const int h = lt.tm_hour;
+  if (cfg.openH == cfg.closeH) return true;
+  return cfg.openH < cfg.closeH ? (h >= cfg.openH && h < cfg.closeH) : (h >= cfg.openH || h < cfg.closeH);
+}
+String clockText() {
+  if (!clockOk()) return "";
+  const time_t t = time(nullptr); struct tm lt; localtime_r(&t, &lt);
+  char b[8]; snprintf(b, sizeof(b), "%02d:%02d", lt.tm_hour, lt.tm_min); return String(b);
+}
+void setAutoTour(bool a) { if (autoTour != a) { autoTour = a; applySettings(); } }
 
 // Scale completed animation frames by physical chain panel. Keep the calibration test
 // independent so its requested brightness remains useful when a panel is set to 0%.
@@ -831,6 +873,7 @@ void resetCueClocks() {
 
 void goIdle(uint32_t now) {
   panelTestActive = false;
+  setAutoTour(false);
   state = ST_IDLE; stateStartMs = now; tourPaused = false;
   resetCueClocks();
   lastEvent = "idle";
@@ -838,6 +881,7 @@ void goIdle(uint32_t now) {
 }
 void startTour(uint32_t now) {
   panelTestActive = false;
+  setAutoTour(false);                 // autoplay sets it again right after calling this
   state = ST_TOUR; stateStartMs = now; tourStartMs = now; tourPaused = false;
   resetCueClocks();
   if (!Audio::hasTrack[Audio::JOURNEY]) Audio::play(CUE_START);   // the soundtrack starts silent at the trigger
@@ -846,6 +890,7 @@ void startTour(uint32_t now) {
 }
 void startFocus(int box, uint32_t now, bool pauseRunningTour) {
   panelTestActive = false;
+  setAutoTour(false);                 // a visitor took over → normal volume from here on
   if (pauseRunningTour && state == ST_TOUR) {
     tourPaused = true;
     tourPausedAt = (now - tourStartMs) / 1000.0f;
@@ -964,7 +1009,8 @@ void processCmds(uint32_t now) {
         if (cfg.mode == MODE_AUTO) onButton(c.arg, now);
         break;
       case CMD_WEB_TOUR:
-        if (cfg.remoteOn && cfg.mode == MODE_AUTO && state == ST_IDLE) { startTour(now); lastEvent = "web: tour"; }
+        // a visitor may start the journey while waiting, or restart one that autoplay started (full volume)
+        if (cfg.remoteOn && cfg.mode == MODE_AUTO && (state == ST_IDLE || (state == ST_TOUR && autoTour))) { startTour(now); lastEvent = "web: tour"; }
         break;
       case CMD_WEB_BOX:
         if (cfg.remoteOn && cfg.mode == MODE_AUTO && requestBox(c.arg, now)) {
@@ -1367,6 +1413,13 @@ void handleSet() {
   for (int i = 0; i < 4; i++) { char k[4] = { 'b', (char)('1' + i), 0 }; if (server.hasArg(k)) cfg.buttonOn[i] = server.arg(k).toInt() != 0; }
   if (server.hasArg("remote")) cfg.remoteOn = server.arg("remote").toInt() != 0;
   if (server.hasArg("va")) cfg.visitorAudioOn = server.arg("va").toInt() != 0;
+  if (server.hasArg("auto")) cfg.autoOn = server.arg("auto").toInt() != 0;
+  if (server.hasArg("gap"))  cfg.autoGapS = constrain(server.arg("gap").toInt(), 5, 1800);
+  if (server.hasArg("avol")) cfg.autoVol = constrain(server.arg("avol").toInt(), 0, 100);
+  if (server.hasArg("hrs"))  cfg.hoursOn = server.arg("hrs").toInt() != 0;
+  if (server.hasArg("oh"))   cfg.openH = constrain(server.arg("oh").toInt(), 0, 23);
+  if (server.hasArg("ch"))   cfg.closeH = constrain(server.arg("ch").toInt(), 0, 24);
+  if (server.hasArg("cm"))   cfg.closedMode = server.arg("cm").toInt() ? 1 : 0;
   sendCmd(CMD_APPLY);   // brightness / volume / saving happen on the LED loop between frames
   handleStatus();
 }
@@ -1573,9 +1626,9 @@ void publishStatus() {
   struct timeval tv; gettimeofday(&tv, nullptr);
   const long long ms = (tv.tv_sec > 1700000000) ? (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000 : 0;   // 0 = clock not set yet
   char buf[300];
-  snprintf(buf, sizeof(buf), "{\"s\":\"%s\",\"b\":%d,\"p\":%.2f,\"left\":%d,\"lock\":%d,\"paused\":%d,\"on\":%d,\"va\":%d,\"z\":%d,\"ts\":%ld,\"at\":%d,\"ap\":%.2f,\"ae\":%.2f,\"ms\":%lld}",
+  snprintf(buf, sizeof(buf), "{\"s\":\"%s\",\"b\":%d,\"p\":%.2f,\"left\":%d,\"lock\":%d,\"paused\":%d,\"on\":%d,\"va\":%d,\"z\":%d,\"ts\":%ld,\"at\":%d,\"ap\":%.2f,\"ae\":%.2f,\"ms\":%lld,\"au\":%d}",
            S[state], state == ST_FOCUS ? focusBox + 1 : 0, p, (int)(left + 0.5f), (int)(lock + 0.5f), tourPaused ? 1 : 0,
-           (cfg.remoteOn && cfg.mode == MODE_AUTO) ? 1 : 0, cfg.visitorAudioOn ? 1 : 0, sleeping ? 1 : 0, (long)time(nullptr), wb, wp, we, ms);
+           (cfg.remoteOn && cfg.mode == MODE_AUTO) ? 1 : 0, cfg.visitorAudioOn ? 1 : 0, sleeping ? 1 : 0, (long)time(nullptr), wb, wp, we, ms, autoTour ? 1 : 0);
   const String topic = String(MQTT_TOPIC) + "/status";
   mqtt.publish(topic.c_str(), buf, true);
   lastStatusMs = now;
@@ -1639,7 +1692,7 @@ void netLoop(uint32_t now) {
     netFails = 0;
     cloudOkOnLink = false; linkUpMs = now;
     netNote = "已连上 " + WiFi.SSID();
-    configTime(0, 0, "pool.ntp.org", "time.google.com");   // clock for checking developer commands
+    configTzTime(TZ_MELBOURNE, "pool.ntp.org", "time.google.com");   // clock for developer commands + opening hours
     Serial.print(F("Wi-Fi: connected to ")); Serial.print(WiFi.SSID());
     Serial.print(F(", IP ")); Serial.println(WiFi.localIP());
   }
@@ -2118,6 +2171,15 @@ void publishDev() {
   j += ",\"key\":" + String(devKey.length() ? "true" : "false");
   j += ",\"sleep\":" + String(sleeping ? "true" : "false") + ",\"ap\":" + String(apOn ? "true" : "false");
   j += ",\"ts\":" + String((long)time(nullptr));     // clock time, so the console can tell old news from live news
+  {   // autoplay: local clock, open or closed, autoplayed tour now, seconds until the next autoplay (-1 = none)
+    const uint32_t n = millis();
+    long next = -1;
+    if (cfg.autoOn && cfg.mode != MODE_IDLE && isOpenNow() && state == ST_IDLE) {
+      const long el = (long)((n - stateStartMs) / 1000);
+      next = max(0L, (long)cfg.autoGapS - el);
+    }
+    j += ",\"clock\":\"" + clockText() + "\",\"open\":" + String(isOpenNow() ? 1 : 0) + ",\"autoNow\":" + String(autoTour ? 1 : 0) + ",\"next\":" + String(next);
+  }
   j += ",\"state\":\"" + String(ST[state]) + "\",\"box\":" + String(state == ST_FOCUS ? focusBox + 1 : 0);
   j += ",\"event\":\"" + jsonEsc(lastEvent) + "\",\"test\":" + String(testPattern ? "true" : "false");
   j += ",\"hall\":" + String(hall.raw()) + ",\"hallBase\":" + String(hall.baseline());
@@ -2134,6 +2196,8 @@ void publishDev() {
   j += ",\"s1\":" + String(cfg.spk1) + ",\"s2\":" + String(cfg.spk2) + ",\"slp\":" + String(cfg.sleepMin);
   j += ",\"hall\":" + String(cfg.hallThreshold) + ",\"lock\":" + String(cfg.focusLockS) + ",\"remote\":" + String(cfg.remoteOn ? 1 : 0);
   j += ",\"va\":" + String(cfg.visitorAudioOn ? "true" : "false");
+  j += ",\"auto\":" + String(cfg.autoOn ? 1 : 0) + ",\"gap\":" + String(cfg.autoGapS) + ",\"avol\":" + String(cfg.autoVol);
+  j += ",\"hrs\":" + String(cfg.hoursOn ? 1 : 0) + ",\"oh\":" + String(cfg.openH) + ",\"ch\":" + String(cfg.closeH) + ",\"cm\":" + String(cfg.closedMode);
   j += ",\"btn\":[";
   for (int i = 0; i < 4; i++) { j += cfg.buttonOn[i] ? "1" : "0"; if (i < 3) j += ","; }
   j += "]},\"aud\":[";
@@ -2185,6 +2249,13 @@ void applySetString(const String& a) {
       else if (k == "lock") cfg.focusLockS = constrain(v, 0, 60);
       else if (k == "remote") cfg.remoteOn = v != 0;
       else if (k == "va") cfg.visitorAudioOn = v != 0;
+      else if (k == "auto") cfg.autoOn = v != 0;
+      else if (k == "gap") cfg.autoGapS = constrain(v, 5, 1800);
+      else if (k == "avol") cfg.autoVol = constrain(v, 0, 100);
+      else if (k == "hrs") cfg.hoursOn = v != 0;
+      else if (k == "oh") cfg.openH = constrain(v, 0, 23);
+      else if (k == "ch") cfg.closeH = constrain(v, 0, 24);
+      else if (k == "cm") cfg.closedMode = v ? 1 : 0;
       else if (k.length() == 2 && k[0] == 'b' && k[1] >= '1' && k[1] <= '4') cfg.buttonOn[k[1] - '1'] = v != 0;
     }
     i = amp + 1;
@@ -2542,6 +2613,19 @@ void loop() {
   if (cfg.mode == MODE_IDLE && state != ST_IDLE) goIdle(now);
   if (state != ST_IDLE || testPattern || hall.active()) lastActivityMs = now;   // something is happening
 
+  // ---- autoplay: after cfg.autoGapS seconds of idle animation, play the whole journey again ----
+  const bool openNow = isOpenNow();
+  if (cfg.autoOn && cfg.mode != MODE_IDLE && openNow && state == ST_IDLE && !testPattern && !panelTestActive
+      && now - stateStartMs >= (uint32_t)cfg.autoGapS * 1000UL) {
+    wakeUp(now);
+    startTour(now);
+    setAutoTour(true);
+    lastEvent = "auto tour";
+  }
+  // ---- outside opening hours: dim idle animation or all off (a visitor request still plays, then back) ----
+  const bool closedNow = !openNow && state == ST_IDLE && !testPattern && !panelTestActive;
+  if (closedNow && !sleeping) { sleeping = true; statusDirty = true; lastEvent = "closed"; }
+
   // ---- standby: nobody for cfg.sleepMin minutes → the same idle animation, dimmer and at 5 frames/s ----
   if (!sleeping && cfg.sleepMin > 0 && state == ST_IDLE && !testPattern && now - lastActivityMs > (uint32_t)cfg.sleepMin * 60000UL) {
     sleeping = true;
@@ -2551,7 +2635,7 @@ void loop() {
   if (sleeping) {                           // hall, buttons and website still wake it (checked above)
     Audio::want(-1, 0);
     FastLED.clear();
-    renderIdle((now - stateStartMs) / 1000.0f);
+    if (!(closedNow && cfg.closedMode == 1)) renderIdle((now - stateStartMs) / 1000.0f);   // closed + "off" → dark
     for (int i = 0; i < NUM_LEDS; i++) leds[i].nscale8_video(SLEEP_DIM);
     applyPanelBrightness();
     limitSupply(0, SUPPLY_SPLIT_LED);
